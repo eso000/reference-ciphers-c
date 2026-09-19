@@ -109,7 +109,13 @@ static void padKeyBit(const char *key, char out[65])
 		for (int b = 3; b >= 0; --b)
 			bin[n++] = ((v >> b) & 1) ? '1' : '0';
 	}
-	bin[n++] = '1';
+	/* Crypto++ pads the key words as k0[keylen/4] |= 1 << ((keylen%4)*8),
+	   i.e. a little-endian '1' bit in the byte right after the key bytes. */
+	{
+		uint8_t pad = 0x01;
+		for (int b = 7; b >= 0; --b)
+			bin[n++] = ((pad >> b) & 1) ? '1' : '0';
+	}
 	while (n < 256)
 		bin[n++] = '0';
 
