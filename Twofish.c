@@ -1,0 +1,398 @@
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#include "Twofish.h"
+
+
+#define padPKCS(pvec, missing) for (int i = 0; i < missing; ++i)\
+                                pvec.push_back((uint8_t) missing);
+
+#define padZeros(pvec, missing) for (int i = 0; i < missing; ++i)\
+                                pvec.push_back((uint8_t) 0);
+
+#define padANSIX923(pvec, missing) for (int i = 0; i < missing-1; ++i)\
+                                    pvec.push_back((uint8_t) 0);\
+                                   pvec.push_back((uint8_t) missing);
+
+#define padISO78164(pvec, missing) pvec.push_back((uint8_t) 0x80);\
+                                   for (int i = 0; i < missing-1; ++i)\
+                                           pvec.push_back((uint8_t) 0);\
+
+
+
+
+#define copy16(arr1, arr2) arr1[0] = *arr2;\
+    arr1[1] = *(arr2+1);\
+    arr1[2] = *(arr2+2);\
+    arr1[3] = *(arr2+3);\
+    arr1[4] = *(arr2+4);\
+    arr1[5] = *(arr2+5);\
+    arr1[6] = *(arr2+6);\
+    arr1[7] = *(arr2+7);\
+    arr1[8] = *(arr2+8);\
+    arr1[9] = *(arr2+9);\
+    arr1[10] = *(arr2+10);\
+    arr1[11] = *(arr2+11);\
+    arr1[12] = *(arr2+12);\
+    arr1[13] = *(arr2+13);\
+    arr1[14] = *(arr2+14);\
+    arr1[15] = *(arr2+15);
+
+
+
+#define xor16(arr1, arr2) arr1[0] ^= *arr2;\
+    arr1[1] ^= *(arr2+1);\
+    arr1[2] ^= *(arr2+2);\
+    arr1[3] ^= *(arr2+3);\
+    arr1[4] ^= *(arr2+4);\
+    arr1[5] ^= *(arr2+5);\
+    arr1[6] ^= *(arr2+6);\
+    arr1[7] ^= *(arr2+7);\
+    arr1[8] ^= *(arr2+8);\
+    arr1[9] ^= *(arr2+9);\
+    arr1[10] ^= *(arr2+10);\
+    arr1[11] ^= *(arr2+11);\
+    arr1[12] ^= *(arr2+12);\
+    arr1[13] ^= *(arr2+13);\
+    arr1[14] ^= *(arr2+14);\
+    arr1[15] ^= *(arr2+15);
+
+
+#define byte0(x) (uint8_t)(x>>24)
+#define byte1(x) (uint8_t)(x>>16)
+#define byte2(x) (uint8_t)(x>>8)
+#define byte3(x) (uint8_t)x
+
+
+#define PHT(ax, bx) aph = ax; ax =(ax+bx); bx=(aph+(bx<<1));
+
+#define rotl4(xr) (((xr>>1)|(xr<< 3))&0xf)
+
+#define rotr(xr,times) (((xr << times)|(xr >> 32-times)))
+
+#define rotl(xr,times) (((xr >> times)|(xr << 32-times)))
+
+
+
+#define MDSmult(hword) hword = ((byte3(temp)^MDSEF[byte2(temp)]^MDS5B[byte1(temp)]^MDS5B[byte0(temp)]))|\
+                                      ((MDS5B[byte3(temp)]^MDSEF[byte2(temp)]^MDSEF[byte1(temp)]^byte0(temp))<<8)|\
+                                     ((MDSEF[byte3(temp)]^MDS5B[byte2(temp)]^byte1(temp)^MDSEF[byte0(temp)])<<16)|\
+                                     ((MDSEF[byte3(temp)]^byte2(temp)^MDSEF[byte1(temp)]^MDS5B[byte0(temp)])<<24);
+
+#define h128(hword, hkey)  temp = ( q1[q0[q0[byte0(hword)]^*(hkey)]^*(hkey+4)])|\
+                                    ((q0[q0[q1[byte1(hword)]^*(hkey+1)]^*(hkey+5)])<<8)|\
+                                    ((q1[q1[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)])<<16)|\
+                                    ((q0[q1[q1[byte3(hword)]^*(hkey+3)]^*(hkey+7)])<<24);\
+                                    MDSmult(hword)
+
+
+#define h196(hword, hkey) temp =  ( q1[q0[q0[q1[byte0(hword)]^*(hkey)]^*(hkey+4)]^*(hkey+8)])|\
+                                    ((q0[q0[q1[q1[byte1(hword)]^*(hkey+1)]^*(hkey+5)]^*(hkey+9)])<<8)|\
+                                    ((q1[q1[q0[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)]^*(hkey+10)])<<16)|\
+                                    ((q0[q1[q1[q0[byte3(hword)]^*(hkey+3)]^*(hkey+7)]^*(hkey+11)])<<24);\
+                                    MDSmult(hword)
+
+
+#define h256(hword, hkey) temp =  ( q1[q0[q0[q1[q1[byte0(hword)]^*(hkey)]^*(hkey+4)]^*(hkey+8)]^*(hkey+12)])|\
+                                    ((q0[q0[q1[q1[q0[byte1(hword)]^*(hkey+1)]^*(hkey+5)]^*(hkey+9)]^*(hkey+13)])<<8)|\
+                                    ((q1[q1[q0[q0[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)]^*(hkey+10)]^*(hkey+14)])<<16)|\
+                                    ((q0[q1[q1[q0[q1[byte3(hword)]^*(hkey+3)]^*(hkey+7)]^*(hkey+11)]^*(hkey+15)])<<24);\
+                                    MDSmult(hword)
+
+
+#define g(hword, _tf) hword = _tf.Sbox0[byte0(hword)]^ _tf.Sbox1[byte1(hword)]^_tf.Sbox2[byte2(hword)]^ _tf.Sbox3[byte3(hword)];
+                             
+
+#define round(i, l0,l1,r0,r1, nl0,nl1, _tf) nl0 = l0; nl1 = rotr(l1,8);\
+                                          g(nl0, _tf)\
+                                            g(nl1, _tf)\
+                                            PHT(nl0,nl1)\
+                                            nl0 += _tf.Subkeys[2*i+8];\
+                                            nl1 += _tf.Subkeys[2*i+9];\
+                                            nl0 = rotl((nl0^r0),1);\
+                                            nl1 ^= rotr(r1,1);
+
+#define invround(i, l0,l1,r0,r1, nl0,nl1, _tf) nl0 = l0; nl1 = rotr(l1,8);\
+                                          g(nl0, _tf)\
+                                            g(nl1, _tf)\
+                                            PHT(nl0,nl1)\
+                                            nl0 += _tf.Subkeys[2*i+8];\
+                                            nl1 += _tf.Subkeys[2*i+9];\
+                                            nl0 ^= rotr(r0,1);\
+                                            nl1 = rotl((nl1^r1),1);
+
+
+
+    uint32_t twofish_multgf(uint32_t a,uint32_t b,uint32_t pol){
+        if (b == 0 )
+            return 0L;
+        uint32_t p = 0;
+        while (b != 0){
+            if (b%2L == 1)
+                p = p^a;
+            b = b>>1;
+            a = a<<1;
+            if (a > 255)
+                a = a^pol;            
+        }
+        return p;
+    }
+
+    uint8_t multgf(uint16_t a,uint16_t b){
+        if (b == 0 )
+            return (uint8_t)0;
+        uint16_t p = 0;
+        while (b != 0){
+            if (b&1)
+                p = p^a;
+            b = b>>1;
+            a = a<<1;
+            if (a > 255)
+                a = a^333;            
+        }
+        return (uint8_t)p;
+    }
+
+    uint8_t RSAmul(int i, uint8_t *p)
+    {
+        uint8_t result = 0;
+        for (int t = 0; t < 8; ++t)
+            result ^= multgf((uint16_t)*(p+t),(uint16_t)RS[i][t]);
+        return result;
+    }
+
+    struct Twofish twofish_generateKeys(char * mkey)
+    {
+        size_t ksize = strlen(mkey);
+
+        if (ksize < 32){
+              memset(mkey, '0', 32-ksize);
+              ksize = 32;
+        }else if (ksize < 48){
+              memset(mkey, '0', 48-ksize);
+              ksize = 48;
+        }else if (ksize < 64){
+              memset(mkey, '0', 64-ksize);
+              ksize = 64;
+        }else{
+        //     mkey[64] = '\0';
+             ksize = 64;
+        }
+        
+        int n = ksize/2;
+
+        uint8_t m[n];
+        
+        for (int i = 0 ;i < ksize ;i= i+2 ) {
+            char temp[3];
+            strncpy(temp, mkey + i, 2);
+            temp[2] = '\0';
+            m[i/2] = (uint8_t)strtoul(temp, NULL, 16);
+        }
+    
+        uint8_t S[n/2];
+        for (int i = 0; i< n/8; i = ++i)
+        {
+            S[4*i]   = RSAmul(0,&m[8*i]);
+            S[4*i+1] = RSAmul(1,&m[8*i]);
+            S[4*i+2] = RSAmul(2,&m[8*i]);
+            S[4*i+3] = RSAmul(3,&m[8*i]);
+        }
+
+
+
+        uint8_t s0 = 0;
+        uint8_t s1 = 0;
+        uint8_t s2 = 0;
+        uint8_t s3 = 0;
+
+        struct Twofish tf;
+        for (int i = 0; i < 256; ++i)
+        {
+            if(n/2 == 16){
+                s0 = q1[q0[q0[q1[q1[i]^S[0]]^S[4]]^S[8]]^S[12]];
+                s1 = q0[q0[q1[q1[q0[i]^S[1]]^S[5]]^S[9]]^S[13]];
+                s2 = q1[q1[q0[q0[q0[i]^S[2]]^S[6]]^S[10]]^S[14]];
+                s3 = q0[q1[q1[q0[q1[i]^S[3]]^S[7]]^S[11]]^S[15]];
+            }
+
+            tf.Sbox3[i] =(s0 |(MDS5B[s0]<<8)|(MDSEF[s0]<<16)|(MDSEF[s0]<<24));
+            tf.Sbox2[i] =(MDSEF[s1]|(MDSEF[s1]<<8)|(MDS5B[s1]<<16)|(s1<<24));
+            tf.Sbox1[i] =(MDS5B[s2]|(MDSEF[s2]<<8)|(s2<<16)|(MDSEF[s2]<<24));
+            tf.Sbox0[i] =(MDS5B[s3]|(s3<<8)|(MDSEF[s3]<<16)|(MDS5B[s3]<<24));                    
+        }
+
+        uint8_t M_odd[n/2];
+        uint8_t M_even[n/2];
+        int i_even = 0;
+        int i_odd = 0;
+        for (int i = 0;i < n; i = i+4){
+            if ((i/4)%2 == 1){
+                M_odd[n/2-i_odd-4] = m[i];
+                M_odd[n/2-i_odd-3] = m[i+1];
+                M_odd[n/2-i_odd-2] = m[i+2];
+                M_odd[n/2-i_odd-1] = m[i+3];
+                i_odd += 4;
+            }else{
+                M_even[n/2-i_even-4] = m[i];
+                M_even[n/2-i_even-3] = m[i+1];
+                M_even[n/2-i_even-2] = m[i+2];
+                M_even[n/2-i_even-1] = m[i+3];
+                i_even += 4;
+            }
+        }
+
+        
+                
+        uint32_t rho = 16843009;//2**24+2**16+2**8+1
+        uint32_t a0, b0, a1, b1, temp, aph;
+        for (int i = 0 ; i < 20; ++i){
+            a0 = 2*i*rho;
+            b0 = (2*i+1)*rho;
+            switch (n/8){
+                case 4:
+                    h256(a0,&M_even[0]);
+                    h256(b0,&M_odd[0]);
+                    break;
+                case 3:
+                    h196(a0,&M_even[0]);
+                    h196(b0,&M_odd[0]);
+                    break;
+                case 2:
+                    h128(a0,&M_even[0]);
+                    h128(b0,&M_odd[0]);
+                    break;
+            }
+            b0 = rotr(b0,8);
+            PHT(a0,b0)    
+            tf.Subkeys[2*i] = a0;
+            b0 = rotr(b0,9);
+            tf.Subkeys[2*i+1] = b0;     
+        }
+
+        return tf;
+    }
+
+    void twofish_encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1, struct Twofish tf)
+    {
+        uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
+        
+        left0 = (*lb0)| (*(lb0+1)<<8)|(*(lb0+2)<<16)| (*(lb0+3)<<24);
+        left1 = (*lb1)| (*(lb1+1)<<8)|(*(lb1+2)<<16)| (*(lb1+3)<<24);
+        right0 = (*rb0)| (*(rb0+1)<<8)|(*(rb0+2)<<16)| (*(rb0+3)<<24);
+        right1 = (*rb1)| (*(rb1+1)<<8)|(*(rb1+2)<<16)| (*(rb1+3)<<24);
+        
+
+        left0 ^= tf.Subkeys[0]; left1 ^= tf.Subkeys[1];
+        right0 ^= tf.Subkeys[2]; right1 ^= tf.Subkeys[3];
+
+        round( 0, left0, left1, right0, right1, newl0, newl1, tf)
+        round( 1, newl0, newl1, left0, left1, right0, right1, tf)
+        round( 2, right0, right1, newl0, newl1, left0, left1, tf)
+        round( 3, left0, left1, right0, right1, newl0, newl1, tf)
+        round( 4, newl0, newl1, left0, left1, right0, right1, tf)
+        round( 5, right0, right1, newl0, newl1, left0, left1, tf)
+        round( 6, left0, left1, right0, right1, newl0, newl1, tf)
+        round( 7, newl0, newl1, left0, left1, right0, right1, tf)
+        round( 8, right0, right1, newl0, newl1, left0, left1, tf)
+        round( 9, left0, left1, right0, right1, newl0, newl1, tf)
+        round(10, newl0, newl1, left0, left1, right0, right1, tf)
+        round(11, right0, right1, newl0, newl1, left0, left1, tf)
+        round(12, left0, left1, right0, right1, newl0, newl1, tf)
+        round(13, newl0, newl1, left0, left1, right0, right1, tf)
+        round(14, right0, right1, newl0, newl1, left0, left1, tf)
+        round(15, left0, left1, right0, right1, newl0, newl1, tf)
+
+        left0 ^= tf.Subkeys[4]; left1 ^= tf.Subkeys[5];
+        newl0 ^= tf.Subkeys[6]; newl1 ^= tf.Subkeys[7];
+        
+        *lb0 = byte3(left0); *(lb0+1) = byte2(left0);*(lb0+2) = byte1(left0); *(lb0+3) = byte0(left0);
+        *lb1 = byte3(left1); *(lb1+1) = byte2(left1);*(lb1+2) = byte1(left1); *(lb1+3) = byte0(left1);
+        *rb0 = byte3(newl0); *(rb0+1) = byte2(newl0);*(rb0+2) = byte1(newl0); *(rb0+3) = byte0(newl0);
+        *rb1 = byte3(newl1); *(rb1+1) = byte2(newl1);*(rb1+2) = byte1(newl1); *(rb1+3) = byte0(newl1);
+    }
+
+    void twofish_decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1, struct Twofish tf)
+    {
+        uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
+        
+        left0 = (*lb0)| (*(lb0+1)<<8)|(*(lb0+2)<<16)| (*(lb0+3)<<24);
+        left1 = (*lb1)| (*(lb1+1)<<8)|(*(lb1+2)<<16)| (*(lb1+3)<<24);
+        right0 = (*rb0)| (*(rb0+1)<<8)|(*(rb0+2)<<16)| (*(rb0+3)<<24);
+        right1 = (*rb1)| (*(rb1+1)<<8)|(*(rb1+2)<<16)| (*(rb1+3)<<24);
+        
+        left0 ^= tf.Subkeys[4]; left1 ^= tf.Subkeys[5];
+        right0 ^= tf.Subkeys[6]; right1 ^= tf.Subkeys[7];
+        
+        invround(15, left0, left1, right0, right1, newl0, newl1, tf)
+        invround(14, newl0, newl1, left0, left1, right0, right1, tf)
+        invround(13, right0, right1, newl0, newl1, left0, left1, tf)
+        invround(12, left0, left1, right0, right1, newl0, newl1, tf)
+        invround(11, newl0, newl1, left0, left1, right0, right1, tf)
+        invround(10, right0, right1, newl0, newl1, left0, left1, tf)
+        invround( 9, left0, left1, right0, right1, newl0, newl1, tf)
+        invround( 8, newl0, newl1, left0, left1, right0, right1, tf)
+        invround( 7, right0, right1, newl0, newl1, left0, left1, tf)
+        invround( 6, left0, left1, right0, right1, newl0, newl1, tf)
+        invround( 5, newl0, newl1, left0, left1, right0, right1, tf)
+        invround( 4, right0, right1, newl0, newl1, left0, left1, tf)
+        invround( 3, left0, left1, right0, right1, newl0, newl1, tf)
+    
+		left0 ^= tf.Subkeys[0]; left1 ^= tf.Subkeys[1];
+		newl0 ^= tf.Subkeys[2]; newl1 ^= tf.Subkeys[3];
+		
+		*lb0 = byte3(left0); *(lb0+1) = byte2(left0);*(lb0+2) = byte1(left0); *(lb0+3) = byte0(left0);
+		*lb1 = byte3(left1); *(lb1+1) = byte2(left1);*(lb1+2) = byte1(left1); *(lb1+3) = byte0(left1);
+		*rb0 = byte3(newl0); *(rb0+1) = byte2(newl0);*(rb0+2) = byte1(newl0); *(rb0+3) = byte0(newl0);
+		*rb1 = byte3(newl1); *(rb1+1) = byte2(newl1);*(rb1+2) = byte1(newl1); *(rb1+3) = byte0(newl1);
+	}
+
+
+    void twofish_encryptECB(uint8_t *plt, int len, struct Twofish tf)
+    {
+        for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
+            twofish_encrypt_block(i,i+4,i+8, i+12, tf);
+    }
+    void twofish_decryptECB(uint8_t *plt, int len, struct Twofish tf)
+    {
+        for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
+            twofish_decrypt_block(i,i+4,i+8, i+12, tf);
+    }
+
+
+
+
+    void twofish_encryptCBC(uint8_t *plt, int len, uint8_t *iv, struct Twofish tf)
+    {    
+        for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
+        {    
+            xor16(i,iv)
+            twofish_encrypt_block(i,i+4,i+8, i+12, tf);
+            iv = i;
+        }
+    }
+
+    void twofish_decryptCBC(uint8_t *plt, int len, uint8_t *iv, struct Twofish tf)
+    {    
+        uint8_t temp[16];
+        for(uint8_t *i = plt; i+16<=plt + len; i = i + 8)
+        {    
+            copy16(temp, i)
+            twofish_decrypt_block(i,i+4,i+8, i+12, tf);
+            xor16(i,iv)
+            copy16(iv, temp)
+        }
+    }
+
+
+int main() {
+    struct Twofish tf = twofish_generateKeys("5468617473206d79204b756e672046755468617473206d79204b756e67204675");
+    uint8_t v[] = {0x74, 0xb5, 0x7f, 0x06, 0xd9, 0xd7, 0x8c, 0x2a, 0xec, 0x14, 0x55, 0x9a, 0x74, 0xcf, 0x97, 0x3c};
+    twofish_encryptECB(v, 16, tf);
+    for (int i= 0; i<=15;++i)
+    {
+        printf("%x\n",v[i]);
+    }
+    return 0;
+}
