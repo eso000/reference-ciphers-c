@@ -1,0 +1,102 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "DES.h"
+#include "padding.h"
+
+static int g_fails = 0;
+
+#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
+
+static void hexDecode(const char *hex, uint8_t *out)
+{
+	for (int i = 0; hex[2 * i] && hex[2 * i + 1]; ++i)
+	{
+		unsigned x;
+		sscanf(hex + 2 * i, "%2x", &x);
+		out[i] = (uint8_t)x;
+	}
+}
+
+struct Kat
+{
+	const char *key;
+	const char *plain;
+	const char *cipher;
+};
+
+static struct Kat KATS[] = {
+	{"133457799BBCDFF1", "0123456789ABCDEF", "85E813540F0AB405"},
+	{"0E329232EA6D0D73", "8787878787878787", "0000000000000000"},
+	{"AABB09182736CCDD", "123456ABCD132536", "C0B7A8D05F3A829C"},
+};
+
+int main()
+{
+	char name[96];
+
+	printf("== DES known-answer tests (ECB vectors) ==\n");
+	for (int i = 0; i < 3; ++i)
+	{
+		struct DES des;
+		BlockCipher c = des_cipher(&des);
+		uint8_t pt[8], ct[8], v[8];
+		c.generateKeys(&c, (char *)KATS[i].key);
+		hexDecode(KATS[i].plain, pt);
+		hexDecode(KATS[i].cipher, ct);
+		memcpy(v, pt, 8);
+		cipherEncryptECB(&c, v, 8);
+		snprintf(name, sizeof(name), "kat ecb %02d encrypt", i + 1);
+		CHECK(memcmp(v, ct, 8) == 0, name);
+		cipherDecryptECB(&c, v, 8);
+		snprintf(name, sizeof(name), "kat ecb %02d decrypt", i + 1);
+		CHECK(memcmp(v, pt, 8) == 0, name);
+	}
+
+	printf("== ECB round trip (two blocks) ==\n");
+	{
+		struct DES des;
+		BlockCipher c = des_cipher(&des);
+		uint8_t v[16] = {0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36,
+				 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+		uint8_t w[16];
+		c.generateKeys(&c, "AABB09182736CCDD");
+		memcpy(w, v, 16);
+		cipherEncryptECB(&c, v, 16);
+		CHECK(memcmp(v, w, 16) != 0, "ecb ciphertext differs from plaintext");
+		cipherDecryptECB(&c, v, 16);
+		CHECK(memcmp(v, w, 16) == 0, "ecb encrypt+decrypt restores plaintext");
+	}
+
+	printf("== CBC round trip ==\n");
+	{
+		struct DES des;
+		BlockCipher c = des_cipher(&des);
+		uint8_t v[16] = {0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36,
+				 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+		uint8_t w[16];
+		uint8_t iv[8] = {0}, iv2[8] = {0};
+		c.generateKeys(&c, "AABB09182736CCDD");
+		memcpy(w, v, 16);
+		cipherEncryptCBC(&c, v, 16, iv);
+		CHECK(memcmp(v, w, 16) != 0, "cbc ciphertext differs from plaintext");
+		cipherDecryptCBC(&c, v, 16, iv2);
+		CHECK(memcmp(v, w, 16) == 0, "cbc encrypt+decrypt restores plaintext");
+	}
+
+	printf("== padding to 8-byte blocks ==\n");
+	{
+		uint8_t *v = malloc(4);
+		v[0] = 'A';
+		v[1] = 'B';
+		v[2] = 'C';
+		v[3] = 'D';
+		v = padPKCS(v, 4, 4);
+		CHECK(v != NULL && v[7] == 4, "4 bytes padded to one block");
+		free(v);
+	}
+
+	printf("\n%d test(s) failed\n", g_fails);
+	return g_fails ? 1 : 0;
+}

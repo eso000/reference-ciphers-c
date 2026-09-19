@@ -3,6 +3,9 @@
 
 #include "Blowfish.h"
 #include "Twofish.h"
+#include "AES.h"
+#include "DES.h"
+#include "Serpent.h"
 
 static int g_fails = 0;
 
@@ -76,6 +79,30 @@ int main()
 		BlockCipher c = twofish_cipher(&tf);
 		c.generateKeys(&c, "00000000000000000000000000000000");
 		runModes("twofish", &c, 16);
+	}
+
+	printf("== BlockCipher modes: AES (16-byte block) ==\n");
+	{
+		struct AES aes;
+		BlockCipher c = aes_cipher(&aes);
+		c.generateKeys(&c, "000102030405060708090a0b0c0d0e0f");
+		runModes("aes", &c, 16);
+	}
+
+	printf("== BlockCipher modes: Serpent (16-byte block) ==\n");
+	{
+		struct Serpent ser;
+		BlockCipher c = serpent_cipher(&ser);
+		c.generateKeys(&c, "1111111111111111111111111111111111111111111111111111111111111111");
+		runModes("serpent", &c, 16);
+	}
+
+	printf("== BlockCipher modes: DES (8-byte block) ==\n");
+	{
+		struct DES des;
+		BlockCipher c = des_cipher(&des);
+		c.generateKeys(&c, "AABB09182736CCDD");
+		runModes("des", &c, 8);
 	}
 
 	printf("\n%d test(s) failed\n", g_fails);
