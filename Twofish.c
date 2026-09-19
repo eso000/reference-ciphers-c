@@ -166,25 +166,17 @@
     {
         size_t ksize = strlen(mkey);
 
-        if (ksize < 32){
-              memset(mkey, '0', 32-ksize);
-              ksize = 32;
-        }else if (ksize < 48){
-              memset(mkey, '0', 48-ksize);
-              ksize = 48;
-        }else if (ksize < 64){
-              memset(mkey, '0', 64-ksize);
-              ksize = 64;
-        }else{
-        //     mkey[64] = '\0';
-             ksize = 64;
+        if (ksize != 32 && ksize != 48 && ksize != 64){
+            struct Twofish bad;
+            memset(&bad, 0, sizeof(bad));
+            return bad;
         }
-        
-        int n = ksize/2;
 
-        uint8_t m[n];
-        
-        for (int i = 0 ;i < ksize ;i= i+2 ) {
+        int n = (int)ksize/2;
+
+        uint8_t m[32];
+
+        for (int i = 0 ;i < (int)ksize ;i= i+2 ) {
             char temp[3];
             strncpy(temp, mkey + i, 2);
             temp[2] = '\0';
@@ -215,12 +207,22 @@
                 s1 = q0[q0[q1[q1[q0[i]^S[1]]^S[5]]^S[9]]^S[13]];
                 s2 = q1[q1[q0[q0[q0[i]^S[2]]^S[6]]^S[10]]^S[14]];
                 s3 = q0[q1[q1[q0[q1[i]^S[3]]^S[7]]^S[11]]^S[15]];
+            }else if(n/2 == 12){
+                s0 = q1[q0[q0[q1[i]^S[0]]^S[4]]^S[8]];
+                s1 = q0[q0[q1[q1[i]^S[1]]^S[5]]^S[9]];
+                s2 = q1[q1[q0[q0[i]^S[2]]^S[6]]^S[10]];
+                s3 = q0[q1[q1[q0[i]^S[3]]^S[7]]^S[11]];
+            }else if(n/2 == 8){
+                s0 = q1[q0[q0[i]^S[0]]^S[4]];
+                s1 = q0[q0[q1[i]^S[1]]^S[5]];
+                s2 = q1[q1[q0[i]^S[2]]^S[6]];
+                s3 = q0[q1[q1[i]^S[3]]^S[7]];
             }
 
-            tf.Sbox3[i] =(s0 |(MDS5B[s0]<<8)|(MDSEF[s0]<<16)|(MDSEF[s0]<<24));
-            tf.Sbox2[i] =(MDSEF[s1]|(MDSEF[s1]<<8)|(MDS5B[s1]<<16)|(s1<<24));
-            tf.Sbox1[i] =(MDS5B[s2]|(MDSEF[s2]<<8)|(s2<<16)|(MDSEF[s2]<<24));
-            tf.Sbox0[i] =(MDS5B[s3]|(s3<<8)|(MDSEF[s3]<<16)|(MDS5B[s3]<<24));                    
+            tf.Sbox3[i] =((uint32_t)s0 |((uint32_t)MDS5B[s0]<<8)|((uint32_t)MDSEF[s0]<<16)|((uint32_t)MDSEF[s0]<<24));
+            tf.Sbox2[i] =((uint32_t)MDSEF[s1]|((uint32_t)MDSEF[s1]<<8)|((uint32_t)MDS5B[s1]<<16)|((uint32_t)s1<<24));
+            tf.Sbox1[i] =((uint32_t)MDS5B[s2]|((uint32_t)MDSEF[s2]<<8)|((uint32_t)s2<<16)|((uint32_t)MDSEF[s2]<<24));
+            tf.Sbox0[i] =((uint32_t)MDS5B[s3]|((uint32_t)s3<<8)|((uint32_t)MDSEF[s3]<<16)|((uint32_t)MDS5B[s3]<<24));                    
         }
 
         uint8_t M_odd[n/2];
@@ -338,6 +340,9 @@
         invround( 5, newl0, newl1, left0, left1, right0, right1, tf)
         invround( 4, right0, right1, newl0, newl1, left0, left1, tf)
         invround( 3, left0, left1, right0, right1, newl0, newl1, tf)
+        invround( 2, newl0, newl1, left0, left1, right0, right1, tf)
+        invround( 1, right0, right1, newl0, newl1, left0, left1, tf)
+        invround( 0, left0, left1, right0, right1, newl0, newl1, tf)
     
 		left0 ^= tf.Subkeys[0]; left1 ^= tf.Subkeys[1];
 		newl0 ^= tf.Subkeys[2]; newl1 ^= tf.Subkeys[3];
@@ -376,7 +381,7 @@
     void twofish_decryptCBC(uint8_t *plt, int len, uint8_t *iv, struct Twofish tf)
     {    
         uint8_t temp[16];
-        for(uint8_t *i = plt; i+16<=plt + len; i = i + 8)
+        for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
         {    
             copy16(temp, i)
             twofish_decrypt_block(i,i+4,i+8, i+12, tf);
@@ -386,13 +391,4 @@
     }
 
 
-int main() {
-    struct Twofish tf = twofish_generateKeys("5468617473206d79204b756e672046755468617473206d79204b756e67204675");
-    uint8_t v[] = {0x74, 0xb5, 0x7f, 0x06, 0xd9, 0xd7, 0x8c, 0x2a, 0xec, 0x14, 0x55, 0x9a, 0x74, 0xcf, 0x97, 0x3c};
-    twofish_encryptECB(v, 16, tf);
-    for (int i= 0; i<=15;++i)
-    {
-        printf("%x\n",v[i]);
-    }
-    return 0;
-}
+

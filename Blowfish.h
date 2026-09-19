@@ -11,31 +11,22 @@ struct Blowfish{
 	uint32_t Subkeys [18];
 };
 
+struct Blowfish blowfish_generateKeys(char* key);
 
+void blowfish_encrypt_block(uint8_t *lb, uint8_t *rb, struct Blowfish bf);
 
+void blowfish_decrypt_block(uint8_t *lb, uint8_t *rb, struct Blowfish bf);
 
+void blowfish_encryptECB(uint8_t *plt, int len, struct Blowfish bf);
 
-//void encrypt_block(uint8_t *lb,uint8_t *rb);
-//
-//void decrypt_block(uint8_t *lb,uint8_t *rb);
-//
-struct Blowfish generateKeys(char* key);
-//
-//void encryptECB(uint8_t *plt, int len);
-//
-//void decryptECB(uint8_t *plt, int len);
-//
-//void encryptCBC(uint8_t *plt, int len, uint8_t *iv);
-//
-//void encryptPCBC(uint8_t *plt, int len, uint8_t *iv);
-//
-//void encryptCFB(uint8_t *plt, int len, uint8_t *iv);
-//
-//uint8_t* blowfish_encrypt(uint8_t* plt, uint8_t* iv)
+void blowfish_decryptECB(uint8_t *plt, int len, struct Blowfish bf);
 
-//void encrypt_File(char* path);
+void blowfish_encryptCBC(uint8_t *plt, int len, uint8_t *iv, struct Blowfish bf);
 
-//void decrypt_File(char* path);
+void blowfish_encryptPCBC(uint8_t *plt, int len, uint8_t *iv, struct Blowfish bf);
 
+void blowfish_encryptCFB(uint8_t *plt, int len, uint8_t *iv, struct Blowfish bf);
+
+uint8_t *blowfish_encrypt(uint8_t *plt, uint8_t *iv, struct Blowfish bf);
 
 #endif

@@ -1,0 +1,11 @@
+*.o
+*.a
+*.so
+*.out
+BlowfishTest
+TwofishTest
+padding.test
+*.swp
+*.swo
+*~
+.DS_Store

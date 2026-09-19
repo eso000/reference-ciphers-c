@@ -58,7 +58,7 @@ void blowfish_encrypt_block(uint8_t *lb,uint8_t *rb, struct Blowfish bf)
 
     void blowfish_decrypt_block(uint8_t *lb,uint8_t *rb, struct Blowfish bf)
     {
-        uint8_t left, right;
+        uint32_t left, right;
         left = (*lb<<24)| (*(lb+1)<<16)|(*(lb+2)<<8)|*(lb+3);
         right = (*rb<<24)| (*(rb+1)<<16)|(*(rb+2)<<8)|*(rb+3);
 
@@ -197,37 +197,4 @@ void blowfish_encrypt_block(uint8_t *lb,uint8_t *rb, struct Blowfish bf)
         return plt;
     }
 
-//    void Blowfish::encrypt_File(char* path)
-//    {
-//        std::ifstream input_file(path, std::ios::binary);
-//        std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
-//        input_file.close();
-//        encryptECB(&vec[0], vec.size());
-//        std::ofstream file(path);
-//        file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
-//        file.close();
-//    }
-//
-//    void Blowfish::decrypt_File(char* path)
-//    {
-//        std::ifstream input_file(path, std::ios::binary);
-//        std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
-//        input_file.close();
-//        decryptECB(&vec[0], vec.size());
-//        std::ofstream file(path);
-//        file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
-//        file.close();
-//    }
-//
 
-
-int main() {
-struct Blowfish bf = blowfish_generateKeys("AABB09182736CCDD");
-    uint8_t v[] = {0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36};
-    blowfish_encryptECB(v, 8, bf);
-    for (int i= 0; i<=7;++i)
-    {
-        printf("%x\n",v[i]);
-    }
-    return 0;
-}
