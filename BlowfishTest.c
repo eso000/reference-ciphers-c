@@ -19,22 +19,6 @@ static void hexDecode(const char *hex, uint8_t *out)
 	}
 }
 
-static void bf_decryptCBC(struct Blowfish *b, uint8_t *data, int len, uint8_t *iv)
-{
-	uint8_t cur[8], prev[8];
-	memcpy(prev, iv, 8);
-	for (uint8_t *i = data; i + 8 <= data + len; i = i + 8)
-	{
-		memcpy(cur, i, 8);
-		blowfish_decrypt_block(i, i + 4, *b);
-		for (int k = 0; k < 8; ++k)
-		{
-			i[k] ^= prev[k];
-			prev[k] = cur[k];
-		}
-	}
-}
-
 struct Kat
 {
 	const char *key;
@@ -55,45 +39,49 @@ int main()
 	printf("== Blowfish known-answer tests (ECB vectors) ==\n");
 	for (int i = 0; i < 3; ++i)
 	{
-		struct Blowfish c = blowfish_generateKeys((char *)KATS[i].key);
+		struct Blowfish bf;
+		BlockCipher c = blowfish_cipher(&bf);
 		uint8_t pt[8], ct[8], v[8];
+		c.generateKeys(&c, (char *)KATS[i].key);
 		hexDecode(KATS[i].plain, pt);
 		hexDecode(KATS[i].cipher, ct);
 		memcpy(v, pt, 8);
-		blowfish_encryptECB(v, 8, c);
+		cipherEncryptECB(&c, v, 8);
 		snprintf(name, sizeof(name), "kat ecb %02d encrypt", i + 1);
 		CHECK(memcmp(v, ct, 8) == 0, name);
-		blowfish_decryptECB(v, 8, c);
+		cipherDecryptECB(&c, v, 8);
 		snprintf(name, sizeof(name), "kat ecb %02d decrypt", i + 1);
 		CHECK(memcmp(v, pt, 8) == 0, name);
 	}
 
 	printf("== ECB round trip (two blocks) ==\n");
 	{
-		struct Blowfish c = blowfish_generateKeys("AABB09182736CCDD");
-		struct Blowfish d = blowfish_generateKeys("AABB09182736CCDD");
+		struct Blowfish bf;
+		BlockCipher c = blowfish_cipher(&bf);
 		uint8_t v[16] = {0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36,
 				 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 		uint8_t w[16];
+		c.generateKeys(&c, "AABB09182736CCDD");
 		memcpy(w, v, 16);
-		blowfish_encryptECB(v, 16, c);
+		cipherEncryptECB(&c, v, 16);
 		CHECK(memcmp(v, w, 16) != 0, "ecb ciphertext differs from plaintext");
-		blowfish_decryptECB(v, 16, d);
+		cipherDecryptECB(&c, v, 16);
 		CHECK(memcmp(v, w, 16) == 0, "ecb encrypt+decrypt restores plaintext");
 	}
 
 	printf("== CBC round trip ==\n");
 	{
-		struct Blowfish c = blowfish_generateKeys("AABB09182736CCDD");
-		struct Blowfish d = blowfish_generateKeys("AABB09182736CCDD");
+		struct Blowfish bf;
+		BlockCipher c = blowfish_cipher(&bf);
 		uint8_t v[16] = {0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36,
 				 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 		uint8_t w[16];
 		uint8_t iv[8] = {0}, iv2[8] = {0};
+		c.generateKeys(&c, "AABB09182736CCDD");
 		memcpy(w, v, 16);
-		blowfish_encryptCBC(v, 16, iv, c);
+		cipherEncryptCBC(&c, v, 16, iv);
 		CHECK(memcmp(v, w, 16) != 0, "cbc ciphertext differs from plaintext");
-		bf_decryptCBC(&d, v, 16, iv2);
+		cipherDecryptCBC(&c, v, 16, iv2);
 		CHECK(memcmp(v, w, 16) == 0, "cbc encrypt+decrypt restores plaintext");
 	}
 

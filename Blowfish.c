@@ -5,36 +5,17 @@
 #include "Blowfish.h"
 
 
-#define copy8(arr1, arr2) arr1[0] = *arr2;\
-    arr1[1] = *(arr2+1);\
-    arr1[2] = *(arr2+2);\
-    arr1[3] = *(arr2+3);\
-    arr1[4] = *(arr2+4);\
-    arr1[5] = *(arr2+5);\
-    arr1[6] = *(arr2+6);\
-    arr1[7] = *(arr2+7);
-
-
-#define xor8(arr1, arr2) arr1[0] ^= *arr2;\
-    arr1[1] ^= *(arr2+1);\
-    arr1[2] ^= *(arr2+2);\
-    arr1[3] ^= *(arr2+3);\
-    arr1[4] ^= *(arr2+4);\
-    arr1[5] ^= *(arr2+5);\
-    arr1[6] ^= *(arr2+6);\
-    arr1[7] ^= *(arr2+7);
-
 #define byte0(x) (uint8_t)(x>>24)
 #define byte1(x) (uint8_t)(x>>16)
 #define byte2(x) (uint8_t)(x>>8)
 #define byte3(x) (uint8_t)x
 
-#define S(i,n) bf.SBoxes##i[byte##i(n)]
+#define S(i,n) bf->SBoxes##i[byte##i(n)]
 #define F(x) (( ( S(0,x)+ S(1,x))^S(2,x)) + S(3,x))
-#define round(l,r,i) l ^= bf.Subkeys[i]; r ^= F(l);
+#define round(l,r,i) l ^= bf->Subkeys[i]; r ^= F(l);
 
     
-void blowfish_encrypt_block(uint8_t *lb,uint8_t *rb, struct Blowfish bf)
+void blowfish_encrypt_block(uint8_t *lb,uint8_t *rb, const struct Blowfish *bf)
     {
         uint32_t left, right;
         left = (*lb<<24)| (*(lb+1)<<16)|(*(lb+2)<<8)|*(lb+3);
@@ -48,15 +29,15 @@ void blowfish_encrypt_block(uint8_t *lb,uint8_t *rb, struct Blowfish bf)
         round (left, right, 10) ; round (right, left, 11) ;
         round (left, right, 12) ; round (right, left, 13) ;
         round (left, right, 14) ; round (right, left, 15) ;
-        left ^= bf.Subkeys[16];
-        right ^= bf.Subkeys[17];
+        left ^= bf->Subkeys[16];
+        right ^= bf->Subkeys[17];
 
         *rb = byte0(left); *(rb+1) = byte1(left); *(rb+2) = byte2(left); *(rb+3) = byte3(left);
         *lb = byte0(right); *(lb+1) = byte1(right); *(lb+2) = byte2(right); *(lb+3) = byte3(right);
     }
 
 
-    void blowfish_decrypt_block(uint8_t *lb,uint8_t *rb, struct Blowfish bf)
+    void blowfish_decrypt_block(uint8_t *lb,uint8_t *rb, const struct Blowfish *bf)
     {
         uint32_t left, right;
         left = (*lb<<24)| (*(lb+1)<<16)|(*(lb+2)<<8)|*(lb+3);
@@ -71,8 +52,8 @@ void blowfish_encrypt_block(uint8_t *lb,uint8_t *rb, struct Blowfish bf)
         round (left, right, 7) ; round (right, left, 6) ;
         round (left, right, 5) ; round (right, left, 4) ;
         round (left, right, 3) ; round (right, left, 2) ;
-        left ^= bf.Subkeys[1];
-        right ^= bf.Subkeys[0];
+        left ^= bf->Subkeys[1];
+        right ^= bf->Subkeys[0];
 
         *rb = byte0(left); *(rb+1) = byte1(left); *(rb+2) = byte2(left); *(rb+3) = byte3(left);
         *lb = byte0(right); *(lb+1) = byte1(right); *(lb+2) = byte2(right); *(lb+3) = byte3(right);
@@ -108,27 +89,27 @@ void blowfish_encrypt_block(uint8_t *lb,uint8_t *rb, struct Blowfish bf)
         uint8_t P[8] = {(uint8_t)0, (uint8_t)0, (uint8_t)0, (uint8_t)0,(uint8_t)0,(uint8_t)0,(uint8_t)0,(uint8_t)0};
 
         for(int i=0;i <18; i=i+2){
-            blowfish_encrypt_block(&P[0], &P[4], blowfish);
+            blowfish_encrypt_block(&P[0], &P[4], &blowfish);
             blowfish.Subkeys[i] = (P[0]<<24) + (P[1]<<16) + (P[2]<<8) + P[3];
             blowfish.Subkeys[i+1] = (P[4]<<24) + (P[5]<<16) + (P[6]<<8) + P[7];
         }
         for(int i = 0 ;i<256;i=i+2){
-            blowfish_encrypt_block(&P[0], &P[4], blowfish);
+            blowfish_encrypt_block(&P[0], &P[4], &blowfish);
             blowfish.SBoxes0[i] = (P[0]<<24) + (P[1]<<16) + (P[2]<<8) + P[3];
             blowfish.SBoxes0[i+1] = (P[4]<<24) + (P[5]<<16) + (P[6]<<8) + P[7];
         }
         for(int i = 0 ;i<256;i=i+2){
-            blowfish_encrypt_block(&P[0], &P[4], blowfish);
+            blowfish_encrypt_block(&P[0], &P[4], &blowfish);
             blowfish.SBoxes1[i] = (P[0]<<24) + (P[1]<<16) + (P[2]<<8) + P[3];
             blowfish.SBoxes1[i+1] = (P[4]<<24) + (P[5]<<16) + (P[6]<<8) + P[7];
         }
         for(int i = 0 ;i<256;i=i+2){
-            blowfish_encrypt_block(&P[0], &P[4], blowfish);
+            blowfish_encrypt_block(&P[0], &P[4], &blowfish);
             blowfish.SBoxes2[i] = (P[0]<<24) + (P[1]<<16) + (P[2]<<8) + P[3];
             blowfish.SBoxes2[i+1] = (P[4]<<24) + (P[5]<<16) + (P[6]<<8) + P[7];
         }
         for(int i = 0 ;i<256;i=i+2){
-            blowfish_encrypt_block(&P[0], &P[4], blowfish);
+            blowfish_encrypt_block(&P[0], &P[4], &blowfish);
             blowfish.SBoxes3[i] = (P[0]<<24) + (P[1]<<16) + (P[2]<<8) + P[3];
             blowfish.SBoxes3[i+1] = (P[4]<<24) + (P[5]<<16) + (P[6]<<8) + P[7];
         }
@@ -136,65 +117,23 @@ void blowfish_encrypt_block(uint8_t *lb,uint8_t *rb, struct Blowfish bf)
         return blowfish;
     }   
     
-    void blowfish_encryptECB(uint8_t *plt, int len, struct Blowfish blowfish)
-    {
-        for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
-            blowfish_encrypt_block(i,i+4, blowfish);
-    }
-    void blowfish_decryptECB(uint8_t *plt, int len, struct Blowfish  blowfish)
-    {
-        for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
-            blowfish_decrypt_block(i,i+4, blowfish);
+void blowfish_generateKeysSelf(BlockCipher *self, char *key)
+{
+    *(struct Blowfish *)self->cipherState = blowfish_generateKeys(key);
+}
 
-    }
+void blowfish_encryptBlock(BlockCipher *self, uint8_t *block)
+{
+    blowfish_encrypt_block(block, block + 4, (const struct Blowfish *)self->cipherState);
+}
 
+void blowfish_decryptBlock(BlockCipher *self, uint8_t *block)
+{
+    blowfish_decrypt_block(block, block + 4, (const struct Blowfish *)self->cipherState);
+}
 
-
-
-    void blowfish_encryptCBC(uint8_t *plt, int len, uint8_t *iv, struct Blowfish blowfish)
-    {   
-        for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
-        {   
-            xor8(i,iv)
-            blowfish_encrypt_block(i,i+4, blowfish);
-            iv = i;
-        }
-    }
-
-    void blowfish_encryptPCBC(uint8_t *plt, int len, uint8_t *iv, struct Blowfish blowfish)
-    {
-        for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
-        {
-            xor8(i,iv)
-            blowfish_encrypt_block(i,i+4, blowfish);
-            xor8(iv,i)
-        }
-    }
-
-    void blowfish_encryptCFB(uint8_t *plt, int len, uint8_t *iv, struct Blowfish blowfish)
-    {
-        for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
-        {
-            blowfish_encrypt_block(iv,iv+4, blowfish);
-            xor8(iv,i)
-
-        }
-    }
-
-    uint8_t* blowfish_encrypt(uint8_t* plt, uint8_t* iv, struct Blowfish blowfish)
-    {
-    //  int l = plt.size();
-    //  int m = l%8 != 0 ? (l/8+1)*8-l: 0;
-    //  if (l%8 != 0) //PKCS padding
-    //      padPKCS(plt, m)
-
-    //  l = iv.size();
-    //  if (l <= 8 )
-    //      padPKCS(iv, 8-l)
-    //  
-    //  encryptECB(&plt[0], plt.size()-m);
-        
-        return plt;
-    }
-
-
+BlockCipher blowfish_cipher(void *state)
+{
+    BlockCipher c = {8, state, blowfish_generateKeysSelf, blowfish_encryptBlock, blowfish_decryptBlock};
+    return c;
+}

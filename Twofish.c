@@ -5,60 +5,6 @@
 #include "Twofish.h"
 
 
-#define padPKCS(pvec, missing) for (int i = 0; i < missing; ++i)\
-                                pvec.push_back((uint8_t) missing);
-
-#define padZeros(pvec, missing) for (int i = 0; i < missing; ++i)\
-                                pvec.push_back((uint8_t) 0);
-
-#define padANSIX923(pvec, missing) for (int i = 0; i < missing-1; ++i)\
-                                    pvec.push_back((uint8_t) 0);\
-                                   pvec.push_back((uint8_t) missing);
-
-#define padISO78164(pvec, missing) pvec.push_back((uint8_t) 0x80);\
-                                   for (int i = 0; i < missing-1; ++i)\
-                                           pvec.push_back((uint8_t) 0);\
-
-
-
-
-#define copy16(arr1, arr2) arr1[0] = *arr2;\
-    arr1[1] = *(arr2+1);\
-    arr1[2] = *(arr2+2);\
-    arr1[3] = *(arr2+3);\
-    arr1[4] = *(arr2+4);\
-    arr1[5] = *(arr2+5);\
-    arr1[6] = *(arr2+6);\
-    arr1[7] = *(arr2+7);\
-    arr1[8] = *(arr2+8);\
-    arr1[9] = *(arr2+9);\
-    arr1[10] = *(arr2+10);\
-    arr1[11] = *(arr2+11);\
-    arr1[12] = *(arr2+12);\
-    arr1[13] = *(arr2+13);\
-    arr1[14] = *(arr2+14);\
-    arr1[15] = *(arr2+15);
-
-
-
-#define xor16(arr1, arr2) arr1[0] ^= *arr2;\
-    arr1[1] ^= *(arr2+1);\
-    arr1[2] ^= *(arr2+2);\
-    arr1[3] ^= *(arr2+3);\
-    arr1[4] ^= *(arr2+4);\
-    arr1[5] ^= *(arr2+5);\
-    arr1[6] ^= *(arr2+6);\
-    arr1[7] ^= *(arr2+7);\
-    arr1[8] ^= *(arr2+8);\
-    arr1[9] ^= *(arr2+9);\
-    arr1[10] ^= *(arr2+10);\
-    arr1[11] ^= *(arr2+11);\
-    arr1[12] ^= *(arr2+12);\
-    arr1[13] ^= *(arr2+13);\
-    arr1[14] ^= *(arr2+14);\
-    arr1[15] ^= *(arr2+15);
-
-
 #define byte0(x) (uint8_t)(x>>24)
 #define byte1(x) (uint8_t)(x>>16)
 #define byte2(x) (uint8_t)(x>>8)
@@ -101,15 +47,15 @@
                                     MDSmult(hword)
 
 
-#define g(hword, _tf) hword = _tf.Sbox0[byte0(hword)]^ _tf.Sbox1[byte1(hword)]^_tf.Sbox2[byte2(hword)]^ _tf.Sbox3[byte3(hword)];
+#define g(hword, _tf) hword = _tf->Sbox0[byte0(hword)]^ _tf->Sbox1[byte1(hword)]^_tf->Sbox2[byte2(hword)]^ _tf->Sbox3[byte3(hword)];
                              
 
 #define round(i, l0,l1,r0,r1, nl0,nl1, _tf) nl0 = l0; nl1 = rotr(l1,8);\
                                           g(nl0, _tf)\
                                             g(nl1, _tf)\
                                             PHT(nl0,nl1)\
-                                            nl0 += _tf.Subkeys[2*i+8];\
-                                            nl1 += _tf.Subkeys[2*i+9];\
+                                            nl0 += _tf->Subkeys[2*i+8];\
+                                            nl1 += _tf->Subkeys[2*i+9];\
                                             nl0 = rotl((nl0^r0),1);\
                                             nl1 ^= rotr(r1,1);
 
@@ -117,8 +63,8 @@
                                           g(nl0, _tf)\
                                             g(nl1, _tf)\
                                             PHT(nl0,nl1)\
-                                            nl0 += _tf.Subkeys[2*i+8];\
-                                            nl1 += _tf.Subkeys[2*i+9];\
+                                            nl0 += _tf->Subkeys[2*i+8];\
+                                            nl1 += _tf->Subkeys[2*i+9];\
                                             nl0 ^= rotr(r0,1);\
                                             nl1 = rotl((nl1^r1),1);
 
@@ -276,7 +222,7 @@
         return tf;
     }
 
-    void twofish_encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1, struct Twofish tf)
+    void twofish_encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1, const struct Twofish *tf)
     {
         uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
         
@@ -286,8 +232,8 @@
         right1 = (*rb1)| (*(rb1+1)<<8)|(*(rb1+2)<<16)| (*(rb1+3)<<24);
         
 
-        left0 ^= tf.Subkeys[0]; left1 ^= tf.Subkeys[1];
-        right0 ^= tf.Subkeys[2]; right1 ^= tf.Subkeys[3];
+        left0 ^= tf->Subkeys[0]; left1 ^= tf->Subkeys[1];
+        right0 ^= tf->Subkeys[2]; right1 ^= tf->Subkeys[3];
 
         round( 0, left0, left1, right0, right1, newl0, newl1, tf)
         round( 1, newl0, newl1, left0, left1, right0, right1, tf)
@@ -306,8 +252,8 @@
         round(14, right0, right1, newl0, newl1, left0, left1, tf)
         round(15, left0, left1, right0, right1, newl0, newl1, tf)
 
-        left0 ^= tf.Subkeys[4]; left1 ^= tf.Subkeys[5];
-        newl0 ^= tf.Subkeys[6]; newl1 ^= tf.Subkeys[7];
+        left0 ^= tf->Subkeys[4]; left1 ^= tf->Subkeys[5];
+        newl0 ^= tf->Subkeys[6]; newl1 ^= tf->Subkeys[7];
         
         *lb0 = byte3(left0); *(lb0+1) = byte2(left0);*(lb0+2) = byte1(left0); *(lb0+3) = byte0(left0);
         *lb1 = byte3(left1); *(lb1+1) = byte2(left1);*(lb1+2) = byte1(left1); *(lb1+3) = byte0(left1);
@@ -315,7 +261,7 @@
         *rb1 = byte3(newl1); *(rb1+1) = byte2(newl1);*(rb1+2) = byte1(newl1); *(rb1+3) = byte0(newl1);
     }
 
-    void twofish_decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1, struct Twofish tf)
+    void twofish_decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1, const struct Twofish *tf)
     {
         uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
         
@@ -324,8 +270,8 @@
         right0 = (*rb0)| (*(rb0+1)<<8)|(*(rb0+2)<<16)| (*(rb0+3)<<24);
         right1 = (*rb1)| (*(rb1+1)<<8)|(*(rb1+2)<<16)| (*(rb1+3)<<24);
         
-        left0 ^= tf.Subkeys[4]; left1 ^= tf.Subkeys[5];
-        right0 ^= tf.Subkeys[6]; right1 ^= tf.Subkeys[7];
+        left0 ^= tf->Subkeys[4]; left1 ^= tf->Subkeys[5];
+        right0 ^= tf->Subkeys[6]; right1 ^= tf->Subkeys[7];
         
         invround(15, left0, left1, right0, right1, newl0, newl1, tf)
         invround(14, newl0, newl1, left0, left1, right0, right1, tf)
@@ -344,8 +290,8 @@
         invround( 1, right0, right1, newl0, newl1, left0, left1, tf)
         invround( 0, left0, left1, right0, right1, newl0, newl1, tf)
     
-		left0 ^= tf.Subkeys[0]; left1 ^= tf.Subkeys[1];
-		newl0 ^= tf.Subkeys[2]; newl1 ^= tf.Subkeys[3];
+		left0 ^= tf->Subkeys[0]; left1 ^= tf->Subkeys[1];
+		newl0 ^= tf->Subkeys[2]; newl1 ^= tf->Subkeys[3];
 		
 		*lb0 = byte3(left0); *(lb0+1) = byte2(left0);*(lb0+2) = byte1(left0); *(lb0+3) = byte0(left0);
 		*lb1 = byte3(left1); *(lb1+1) = byte2(left1);*(lb1+2) = byte1(left1); *(lb1+3) = byte0(left1);
@@ -354,41 +300,24 @@
 	}
 
 
-    void twofish_encryptECB(uint8_t *plt, int len, struct Twofish tf)
-    {
-        for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-            twofish_encrypt_block(i,i+4,i+8, i+12, tf);
-    }
-    void twofish_decryptECB(uint8_t *plt, int len, struct Twofish tf)
-    {
-        for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-            twofish_decrypt_block(i,i+4,i+8, i+12, tf);
-    }
+void twofish_generateKeysSelf(BlockCipher *self, char *key)
+{
+    *(struct Twofish *)self->cipherState = twofish_generateKeys(key);
+}
 
+void twofish_encryptBlock(BlockCipher *self, uint8_t *block)
+{
+    twofish_encrypt_block(block, block + 4, block + 8, block + 12, (const struct Twofish *)self->cipherState);
+}
 
+void twofish_decryptBlock(BlockCipher *self, uint8_t *block)
+{
+    twofish_decrypt_block(block, block + 4, block + 8, block + 12, (const struct Twofish *)self->cipherState);
+}
 
-
-    void twofish_encryptCBC(uint8_t *plt, int len, uint8_t *iv, struct Twofish tf)
-    {    
-        for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-        {    
-            xor16(i,iv)
-            twofish_encrypt_block(i,i+4,i+8, i+12, tf);
-            iv = i;
-        }
-    }
-
-    void twofish_decryptCBC(uint8_t *plt, int len, uint8_t *iv, struct Twofish tf)
-    {    
-        uint8_t temp[16];
-        for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-        {    
-            copy16(temp, i)
-            twofish_decrypt_block(i,i+4,i+8, i+12, tf);
-            xor16(i,iv)
-            copy16(iv, temp)
-        }
-    }
-
-
+BlockCipher twofish_cipher(void *state)
+{
+    BlockCipher c = {16, state, twofish_generateKeysSelf, twofish_encryptBlock, twofish_decryptBlock};
+    return c;
+}
 

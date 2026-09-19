@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "BlockCipher.h"
+
 struct Twofish{
     uint32_t Subkeys [40];
 
@@ -32,16 +34,16 @@ struct Twofish{
 
 struct Twofish twofish_generateKeys(char *mkey);
 
-void twofish_encrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, struct Twofish tf);
+void twofish_encrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf);
 
-void twofish_decrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, struct Twofish tf);
+void twofish_decrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf);
 
-void twofish_encryptECB(uint8_t *plt, int len, struct Twofish tf);
+void twofish_generateKeysSelf(BlockCipher *self, char *key);
 
-void twofish_decryptECB(uint8_t *plt, int len, struct Twofish tf);
+void twofish_encryptBlock(BlockCipher *self, uint8_t *block);
 
-void twofish_encryptCBC(uint8_t *plt, int len, uint8_t *iv, struct Twofish tf);
+void twofish_decryptBlock(BlockCipher *self, uint8_t *block);
 
-void twofish_decryptCBC(uint8_t *plt, int len, uint8_t *iv, struct Twofish tf);
+BlockCipher twofish_cipher(void *state);
 
 #endif

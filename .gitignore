@@ -4,8 +4,10 @@
 *.out
 BlowfishTest
 TwofishTest
+ModeTest
 padding.test
 *.swp
 *.swo
 *~
 .DS_Store
+tags
