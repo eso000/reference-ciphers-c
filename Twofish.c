@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "Twofish.h"
+#include "Twofish_data.h"
 
 
 #define byte0(x) (uint8_t)(x>>24)
