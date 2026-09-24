@@ -36,7 +36,7 @@ int main()
 {
 	char name[96];
 
-	printf("== DES known-answer tests (ECB vectors) ==\n");
+	printf("== DES known-answer tests (both IP/FP implementations) ==\n");
 	for (int i = 0; i < 3; ++i)
 	{
 		struct DES des;
@@ -45,13 +45,52 @@ int main()
 		c.generateKeys(&c, (char *)KATS[i].key);
 		hexDecode(KATS[i].plain, pt);
 		hexDecode(KATS[i].cipher, ct);
-		memcpy(v, pt, 8);
-		cipherEncryptECB(&c, v, 8);
-		snprintf(name, sizeof(name), "kat ecb %02d encrypt", i + 1);
-		CHECK(memcmp(v, ct, 8) == 0, name);
-		cipherDecryptECB(&c, v, 8);
-		snprintf(name, sizeof(name), "kat ecb %02d decrypt", i + 1);
-		CHECK(memcmp(v, pt, 8) == 0, name);
+		for (int ai = 0; ai < 2; ++ai)
+		{
+			const char *mode = ai ? "alt" : "naive";
+			des.use_alt = (uint8_t)ai;
+			memcpy(v, pt, 8);
+			cipherEncryptECB(&c, v, 8);
+			snprintf(name, sizeof(name), "kat ecb %02d encrypt (%s)", i + 1, mode);
+			CHECK(memcmp(v, ct, 8) == 0, name);
+			cipherDecryptECB(&c, v, 8);
+			snprintf(name, sizeof(name), "kat ecb %02d decrypt (%s)", i + 1, mode);
+			CHECK(memcmp(v, pt, 8) == 0, name);
+		}
+	}
+
+	printf("== delta-swap networks mutual inverse ==\n");
+	{
+		uint64_t x = 0x123456789abcdef0ULL;
+		int checked = 0;
+		for (int i = 0; i < 256; ++i)
+		{
+			x = x * 6364136223846793005ULL + 1442695040888963407ULL;
+			if (des_fp_perm_alt(des_ip_perm_alt(x)) == x)
+				++checked;
+		}
+		CHECK(checked == 256, "fp(ip(x)) == x for 256 random blocks");
+	}
+
+	printf("== alt vs naive agree ==\n");
+	{
+		struct DES des;
+		BlockCipher c = des_cipher(&des);
+		uint8_t a[8], b[8], orig[8];
+		c.generateKeys(&c, "AABB09182736CCDD");
+		hexDecode("123456ABCD132536", orig);
+		memcpy(a, orig, 8);
+		memcpy(b, orig, 8);
+		des.use_alt = 1;
+		cipherEncryptECB(&c, a, 8);
+		des.use_alt = 0;
+		cipherEncryptECB(&c, b, 8);
+		CHECK(memcmp(a, b, 8) == 0, "alt==naive encrypt");
+		des.use_alt = 1;
+		cipherDecryptECB(&c, a, 8);
+		des.use_alt = 0;
+		cipherDecryptECB(&c, b, 8);
+		CHECK(memcmp(a, b, 8) == 0 && memcmp(a, orig, 8) == 0, "alt==naive decrypt");
 	}
 
 	printf("== ECB round trip (two blocks) ==\n");

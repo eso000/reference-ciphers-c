@@ -7,9 +7,14 @@
 
 struct DES{
 	uint64_t Subkeys [16];
+	uint8_t use_alt;
 };
 
 struct DES des_generateKeys(char* key);
+
+uint64_t des_ip_perm_alt(uint64_t block);
+
+uint64_t des_fp_perm_alt(uint64_t block);
 
 void des_encrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d);
 
