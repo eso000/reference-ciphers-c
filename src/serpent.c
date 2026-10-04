@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include "Serpent.h"
-#include "Serpent_data.h"
+#include "block/serpent.h"
+#include "serpent_data.h"
 
 
 

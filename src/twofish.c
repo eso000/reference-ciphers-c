@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "Twofish.h"
-#include "Twofish_data.h"
+#include "block/twofish.h"
+#include "twofish_data.h"
 
 
 #define byte0(x) (uint8_t)(x>>24)

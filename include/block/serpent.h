@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "BlockCipher.h"
+#include "block/blockcipher.h"
 
 struct Serpent{
 	uint32_t Subkeys [132];

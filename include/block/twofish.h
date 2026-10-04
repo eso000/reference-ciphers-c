@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "BlockCipher.h"
+#include "block/blockcipher.h"
 
 struct Twofish{
     uint32_t Subkeys [40];

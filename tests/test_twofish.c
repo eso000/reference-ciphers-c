@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "Twofish.h"
-#include "padding.h"
+#include "block/twofish.h"
+#include "block/padding.h"
 
 static int g_fails = 0;
 

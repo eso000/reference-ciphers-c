@@ -1,37 +1,51 @@
 CC ?= gcc
 CFLAGS ?= -std=c11 -O2
 
-TESTS = BlowfishTest TwofishTest AESTest DESTest SerpentTest ModeTest padding.test
+INC_DIR := include
+SRC_DIR := src
+TEST_DIR := tests
+BUILD_DIR := build
 
-all: $(TESTS)
+CIPHER_SRCS := \
+	$(SRC_DIR)/aes.c \
+	$(SRC_DIR)/des.c \
+	$(SRC_DIR)/blowfish.c \
+	$(SRC_DIR)/twofish.c \
+	$(SRC_DIR)/serpent.c
 
-BlowfishTest: BlowfishTest.c Blowfish.c BlockCipher.c Blowfish.h Blowfish_data.h BlockCipher.h padding.c padding.h
-	$(CC) $(CFLAGS) BlowfishTest.c Blowfish.c BlockCipher.c padding.c -o $@
+LIB_SRCS := $(SRC_DIR)/blockcipher.c $(SRC_DIR)/padding.c $(CIPHER_SRCS)
 
-TwofishTest: TwofishTest.c Twofish.c BlockCipher.c Twofish.h Twofish_data.h BlockCipher.h padding.c padding.h
-	$(CC) $(CFLAGS) TwofishTest.c Twofish.c BlockCipher.c padding.c -o $@
+TESTS := \
+	test_aes \
+	test_des \
+	test_blowfish \
+	test_twofish \
+	test_serpent \
+	test_modes \
+	test_padding
 
-AESTest: AESTest.c AES.c BlockCipher.c AES.h AES_data.h BlockCipher.h padding.c padding.h
-	$(CC) $(CFLAGS) AESTest.c AES.c BlockCipher.c padding.c -o $@
+BINS := $(addprefix $(BUILD_DIR)/,$(TESTS))
 
-DESTest: DESTest.c DES.c BlockCipher.c DES.h DES_data.h BlockCipher.h padding.c padding.h
-	$(CC) $(CFLAGS) DESTest.c DES.c BlockCipher.c padding.c -o $@
+.PHONY: all test clean
 
-SerpentTest: SerpentTest.c Serpent.c BlockCipher.c Serpent.h Serpent_data.h BlockCipher.h padding.c padding.h
-	$(CC) $(CFLAGS) SerpentTest.c Serpent.c BlockCipher.c padding.c -o $@
+all: $(BINS)
 
-ModeTest: ModeTest.c AES.c DES.c Serpent.c Blowfish.c Twofish.c BlockCipher.c AES.h AES_data.h DES.h DES_data.h Serpent.h Serpent_data.h Blowfish.h Blowfish_data.h Twofish.h Twofish_data.h BlockCipher.h
-	$(CC) $(CFLAGS) ModeTest.c AES.c DES.c Serpent.c Blowfish.c Twofish.c BlockCipher.c -o $@
+$(BUILD_DIR):
+	mkdir -p $@
 
-padding.test: padding.test.c padding.c padding.h
-	$(CC) $(CFLAGS) padding.test.c padding.c -o $@
+# Each test binary is compiled from source in a single command, so there are no
+# object files to go stale against header edits and no dependency list to maintain.
+# Every test links the whole library; unused ciphers cost nothing and adding a
+# cipher here needs no new rule.
+$(BUILD_DIR)/%: $(TEST_DIR)/%.c $(LIB_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(INC_DIR) $< $(LIB_SRCS) -o $@
 
 test: all
 	@fail=0; \
 	for t in $(TESTS); do \
-		./$$t || fail=1; \
+		./$(BUILD_DIR)/$$t || fail=1; \
 	done; \
 	exit $$fail
 
 clean:
-	rm -f $(TESTS) a.out
+	rm -rf $(BUILD_DIR)

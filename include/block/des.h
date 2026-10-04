@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "BlockCipher.h"
+#include "block/blockcipher.h"
 
 struct DES{
 	uint64_t Subkeys [16];

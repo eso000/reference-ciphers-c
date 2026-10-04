@@ -1,15 +1,7 @@
 #include <stdlib.h>
 
-#include "DES.h"
-#include "DES_data.h"
-
-
-
-
-
-
-
-
+#include "block/des.h"
+#include "des_data.h"
 
 union word{
 	uint32_t w;

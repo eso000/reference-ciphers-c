@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "Blowfish.h"
-#include "Blowfish_data.h"
+#include "block/blowfish.h"
+#include "blowfish_data.h"
 
 
 

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "BlockCipher.h"
+#include "block/blockcipher.h"
 
 struct Blowfish{
 	uint32_t SBoxes0 [256];

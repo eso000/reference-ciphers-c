@@ -2,13 +2,7 @@
 *.a
 *.so
 *.out
-BlowfishTest
-TwofishTest
-AESTest
-DESTest
-SerpentTest
-ModeTest
-padding.test
+build/
 *.swp
 *.swo
 *~

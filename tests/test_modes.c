@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "Blowfish.h"
-#include "Twofish.h"
-#include "AES.h"
-#include "DES.h"
-#include "Serpent.h"
+#include "block/blowfish.h"
+#include "block/twofish.h"
+#include "block/aes.h"
+#include "block/des.h"
+#include "block/serpent.h"
 
 static int g_fails = 0;
 

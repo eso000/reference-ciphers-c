@@ -1,6 +1,6 @@
 #include <string.h>
 
-#include "BlockCipher.h"
+#include "block/blockcipher.h"
 
 static void xorBlock(uint8_t *dst, const uint8_t *src, int n)
 {

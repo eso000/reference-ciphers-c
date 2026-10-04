@@ -1,17 +1,7 @@
 #include <string.h>
 
-#include "AES.h"
-#include "AES_data.h"
-
-
-
-
-
-
-
-
-
-
+#include "block/aes.h"
+#include "aes_data.h"
 
 
 #define byte0(x) ((uint8_t)((x) >> 24))
