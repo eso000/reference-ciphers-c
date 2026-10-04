@@ -16,9 +16,9 @@
 
 #define rotl4(xr) (((xr>>1)|(xr<< 3))&0xf)
 
-#define rotr(xr,times) (((xr << times)|(xr >> 32-times)))
+#define rotr(xr,times) (((xr << times)|(xr >> (32 - times))))
 
-#define rotl(xr,times) (((xr >> times)|(xr << 32-times)))
+#define rotl(xr,times) (((xr >> times)|(xr << (32 - times))))
 
 
 
@@ -131,7 +131,7 @@
         }
     
         uint8_t S[n/2];
-        for (int i = 0; i< n/8; i = ++i)
+        for (int i = 0; i< n/8; i++)
         {
             S[4*i]   = RSAmul(0,&m[8*i]);
             S[4*i+1] = RSAmul(1,&m[8*i]);
@@ -195,7 +195,7 @@
         
                 
         uint32_t rho = 16843009;//2**24+2**16+2**8+1
-        uint32_t a0, b0, a1, b1, temp, aph;
+        uint32_t a0, b0, temp, aph;
         for (int i = 0 ; i < 20; ++i){
             a0 = 2*i*rho;
             b0 = (2*i+1)*rho;
@@ -225,7 +225,7 @@
 
     void twofish_encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1, const struct Twofish *tf)
     {
-        uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
+        uint32_t left0, left1, right0, right1,newl0, newl1, aph;
         
         left0 = (*lb0)| (*(lb0+1)<<8)|(*(lb0+2)<<16)| (*(lb0+3)<<24);
         left1 = (*lb1)| (*(lb1+1)<<8)|(*(lb1+2)<<16)| (*(lb1+3)<<24);
@@ -264,7 +264,7 @@
 
     void twofish_decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1, const struct Twofish *tf)
     {
-        uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
+        uint32_t left0, left1, right0, right1,newl0, newl1, aph;
         
         left0 = (*lb0)| (*(lb0+1)<<8)|(*(lb0+2)<<16)| (*(lb0+3)<<24);
         left1 = (*lb1)| (*(lb1+1)<<8)|(*(lb1+2)<<16)| (*(lb1+3)<<24);
