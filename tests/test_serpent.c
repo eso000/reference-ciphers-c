@@ -21,42 +21,171 @@ static void hexDecode(const char *hex, uint8_t *out)
 
 struct Kat
 {
+	const char *name;
 	const char *key;
 	const char *plain;
 	const char *cipher;
 };
 
+/* The published single-block vectors, spanning all three key lengths and the
+   four NESSIE sets. The Python suite in tests/vectors.py carries all sixteen;
+   this is the subset worth burning C build time on. */
 static struct Kat KATS[] = {
-	{"8000000000000000000000000000000000000000000000000000000000000000",
-	 "00000000000000000000000000000000", "a223aa1288463c0e2be38ebd825616c0"},
-	{"1111111111111111111111111111111111111111111111111111111111111111",
-	 "11111111111111111111111111111111", "a482eaa5d5771f2fdb2ea1a5f141b9e2"},
-	{"0102030405060708090a0b0c0d0e0f10",
-	 "00112233445566778899aabbccddeeff", "98874e1fbed147b9f34420e4118c4465"},
-	{"0102030405060708090a0b0c0d0e0f101112131415161718",
-	 "00112233445566778899aabbccddeeff", "17141e4724812f8bbe3e0ab978d1521f"},
+	{"128-bit set1 v0", "80000000000000000000000000000000",
+		"00000000000000000000000000000000", "264e5481eff42a4606abda06c0bfda3d"},
+	{"128-bit set4 v0", "000102030405060708090a0b0c0d0e0f",
+		"00112233445566778899aabbccddeeff", "563e2cf8740a27c164804560391e9b27"},
+	{"128-bit set4 v1", "2bd6459f82c5b300952c49104881ff48",
+		"ea024714ad5c4d84ea024714ad5c4d84", "92d7f8ef2c36c53409f275902f06539f"},
+	{"192-bit set1 v0", "800000000000000000000000000000000000000000000000",
+		"00000000000000000000000000000000", "9e274ead9b737bb21efcfca548602689"},
+	{"192-bit set4 v0", "000102030405060708090a0b0c0d0e0f1011121314151617",
+		"00112233445566778899aabbccddeeff", "6ab816c82de53b93005008afa2246a02"},
+	{"256-bit set1 v0", "8000000000000000000000000000000000000000000000000000000000000000",
+		"00000000000000000000000000000000", "a223aa1288463c0e2be38ebd825616c0"},
+	{"256-bit set3 v17", "1111111111111111111111111111111111111111111111111111111111111111",
+		"11111111111111111111111111111111", "a482eaa5d5771f2fdb2ea1a5f141b9e2"},
+	{"256-bit set4 v1", "2bd6459f82c5b300952c49104881ff482bd6459f82c5b300952c49104881ff48",
+		"ea024714ad5c4d84ea024714ad5c4d84", "3e507730776b93fdea661235e1dd99f0"},
 };
+
+#define KAT_COUNT ((int)(sizeof KATS / sizeof KATS[0]))
+
+/* Multi-block vectors. Serpent's published vectors are single-block ECB, so
+   nothing published covers the mode wrappers; these were produced by GNU
+   nettle and are the only expected values here that are not traceable to a
+   numbered table. */
+#define TWO_BLOCK_PT "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+
+struct ModeKat
+{
+	const char *name;
+	const char *key;
+	const char *cipher;
+};
+
+static struct ModeKat ECB_KATS[] = {
+	{"128-bit", "000102030405060708090a0b0c0d0e0f",
+		"4c7d8a328072a22c823e4a1f3acda16d1fe31aba9824fb1b33b42582291388db"},
+	{"192-bit", "000102030405060708090a0b0c0d0e0f1011121314151617",
+		"753d5b42d86672fb29070c4fe4eaaf4c4cc221270d91e743ca7b9d9e4e1ebe65"},
+	{"256-bit", "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+		"de269ff833e432b85b2e88d2701ce75ce534b936d9df2fc053bee5ed268fc68c"},
+};
+
+#define ECB_KAT_COUNT ((int)(sizeof ECB_KATS / sizeof ECB_KATS[0]))
+
+#define CBC_KEY   "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+#define CBC_IV    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+#define CBC_CIPHER "2aa5a2ff0c27a0f9590f6167e9e779d861fc6463d2e956091e91677d4f38860c"
 
 int main()
 {
 	char name[96];
 
 	printf("== Serpent known-answer tests (ECB vectors) ==\n");
-	for (int i = 0; i < 4; ++i)
+	for (int i = 0; i < KAT_COUNT; ++i)
 	{
 		struct Serpent ser;
 		BlockCipher c = serpent_cipher(&ser);
 		uint8_t pt[16], ct[16], v[16];
+
 		c.generateKeys(&c, (char *)KATS[i].key);
 		hexDecode(KATS[i].plain, pt);
 		hexDecode(KATS[i].cipher, ct);
+
+		/* Encrypt: plaintext in, published ciphertext out. */
 		memcpy(v, pt, 16);
 		cipherEncryptECB(&c, v, 16);
-		snprintf(name, sizeof(name), "kat ecb %02d encrypt", i + 1);
+		snprintf(name, sizeof(name), "kat %s encrypt", KATS[i].name);
 		CHECK(memcmp(v, ct, 16) == 0, name);
+
+		/* Decrypt: start from the published ciphertext rather than from our own
+		   encrypt output, so this cannot pass just by inverting a wrong encrypt. */
+		memcpy(v, ct, 16);
 		cipherDecryptECB(&c, v, 16);
-		snprintf(name, sizeof(name), "kat ecb %02d decrypt", i + 1);
+		snprintf(name, sizeof(name), "kat %s decrypt", KATS[i].name);
 		CHECK(memcmp(v, pt, 16) == 0, name);
+	}
+
+	printf("== ECB two blocks (nettle) ==\n");
+	for (int i = 0; i < ECB_KAT_COUNT; ++i)
+	{
+		struct Serpent ser;
+		BlockCipher c = serpent_cipher(&ser);
+		uint8_t pt[32], ct[32], v[32];
+
+		c.generateKeys(&c, (char *)ECB_KATS[i].key);
+		hexDecode(TWO_BLOCK_PT, pt);
+		hexDecode(ECB_KATS[i].cipher, ct);
+
+		memcpy(v, pt, 32);
+		cipherEncryptECB(&c, v, 32);
+		snprintf(name, sizeof(name), "ecb two-block %s encrypt", ECB_KATS[i].name);
+		CHECK(memcmp(v, ct, 32) == 0, name);
+
+		memcpy(v, ct, 32);
+		cipherDecryptECB(&c, v, 32);
+		snprintf(name, sizeof(name), "ecb two-block %s decrypt", ECB_KATS[i].name);
+		CHECK(memcmp(v, pt, 32) == 0, name);
+
+		/* ECB must not chain: encrypting block 2 alone gives the same bytes. */
+		c.generateKeys(&c, (char *)ECB_KATS[i].key);
+		memcpy(v, pt + 16, 16);
+		cipherEncryptECB(&c, v, 16);
+		snprintf(name, sizeof(name), "ecb two-block %s block 2 stands alone", ECB_KATS[i].name);
+		CHECK(memcmp(v, ct + 16, 16) == 0, name);
+	}
+
+	printf("== CBC two blocks (nettle) ==\n");
+	{
+		struct Serpent ser;
+		BlockCipher c = serpent_cipher(&ser);
+		uint8_t pt[32], ct[32], v[32], iv[16];
+
+		c.generateKeys(&c, (char *)CBC_KEY);
+		hexDecode(TWO_BLOCK_PT, pt);
+		hexDecode(CBC_CIPHER, ct);
+
+		hexDecode(CBC_IV, iv);
+		memcpy(v, pt, 32);
+		cipherEncryptCBC(&c, v, 32, iv);
+		snprintf(name, sizeof(name), "cbc two-block encrypt (%s)", CBC_KEY);
+		CHECK(memcmp(v, ct, 32) == 0, name);
+
+		/* CBC chains, so the two ciphertext blocks must differ. */
+		snprintf(name, sizeof(name), "cbc two-block encrypt chains");
+		CHECK(memcmp(ct, ct + 16, 16) != 0, name);
+
+		/* cipherDecryptCBC advances the IV it is handed, so start from a fresh copy. */
+		hexDecode(CBC_IV, iv);
+		memcpy(v, ct, 32);
+		cipherDecryptCBC(&c, v, 32, iv);
+		snprintf(name, sizeof(name), "cbc two-block decrypt (%s)", CBC_KEY);
+		CHECK(memcmp(v, pt, 32) == 0, name);
+	}
+
+	printf("== Word order (paper's little-endian bitslice words) ==\n");
+	{
+		/* Subkey 0 for the all-zero 256-bit key pins the whole convention at
+		   once: little-endian loading of block and key words, the un-reversed
+		   golden-ratio constant and the un-reversed round counter. A
+		   bit-reversed reading of the same schedule gives different words.
+
+		   No published table lists intermediate subkeys, so this is a regression
+		   pin: the sixteen official ciphertexts above already constrain this
+		   schedule, because any error in it changes the ciphertext. */
+		static const uint32_t EXPECTED[4] = {
+			0x6f5795d0u, 0xa7e3a3ceu, 0xf2d998edu, 0x8ed77390u,
+		};
+		struct Serpent ser = serpent_generateKeys((char *)
+			"0000000000000000000000000000000000000000000000000000000000000000");
+
+		/* Subkeys is a flat array of 33 four-word subkeys, 132 words in all. */
+		CHECK(ser.Subkeys[0] == EXPECTED[0] && ser.Subkeys[1] == EXPECTED[1] &&
+		      ser.Subkeys[2] == EXPECTED[2] && ser.Subkeys[3] == EXPECTED[3],
+		      "subkey 0 for the all-zero key is 0x6f5795d0 0xa7e3a3ce "
+		      "0xf2d998ed 0x8ed77390");
 	}
 
 	printf("== ECB round trip (two blocks) ==\n");
