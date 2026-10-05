@@ -109,11 +109,18 @@
         return result;
     }
 
+    /* Twofish accepts a 128, 192 or 256-bit key, i.e. 32, 48 or 64 hex
+       characters. */
+    static int twofish_key_ok(size_t len)
+    {
+        return len == 32 || len == 48 || len == 64;
+    }
+
     struct Twofish twofish_generateKeys(char * mkey)
     {
         size_t ksize = strlen(mkey);
 
-        if (ksize != 32 && ksize != 48 && ksize != 64){
+        if (!twofish_key_ok(ksize)){
             struct Twofish bad;
             memset(&bad, 0, sizeof(bad));
             return bad;
@@ -301,9 +308,16 @@
 	}
 
 
-void twofish_generateKeysSelf(BlockCipher *self, char *key)
+int twofish_generateKeysSelf(BlockCipher *self, char *key)
 {
-    *(struct Twofish *)self->cipherState = twofish_generateKeys(key);
+    struct Twofish *tf = self->cipherState;
+    if (!twofish_key_ok(strlen(key)))
+    {
+        memset(tf, 0, sizeof(*tf));
+        return 0;
+    }
+    *tf = twofish_generateKeys(key);
+    return 1;
 }
 
 void twofish_encryptBlock(BlockCipher *self, uint8_t *block)

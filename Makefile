@@ -22,7 +22,8 @@ TESTS := \
 	test_twofish \
 	test_serpent \
 	test_modes \
-	test_padding
+	test_padding \
+	test_keys
 
 BINS := $(addprefix $(BUILD_DIR)/,$(TESTS))
 

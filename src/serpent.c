@@ -397,10 +397,25 @@ static void applyInvSBox(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3,
 	*x3 = nx3;
 }
 
+/* Serpent accepts any key from 1 to 256 bits. The key arrives as a hex string,
+   so 2 to 64 characters, and padKeyBit applies the spec's Section 3 padding to
+   anything shorter than 256 bits. Only an empty key and an over-long one are
+   rejected: padKeyBit would otherwise turn "" into the "00" key and truncate
+   past 64 characters without telling the caller. */
+static int serpent_key_ok(size_t len)
+{
+	return len >= 1 && len <= 64;
+}
+
 struct Serpent serpent_generateKeys(char* key)
 {
 	struct Serpent s;
 	char pk[65];
+	if (!serpent_key_ok(strlen(key)))
+	{
+		memset(&s, 0, sizeof(s));
+		return s;
+	}
 	padKeyBit(key, pk);
 	uint32_t wi;
 	uint32_t w[140];
@@ -522,9 +537,16 @@ void serpent_decrypt_block(uint8_t *x0, uint8_t *x1, uint8_t *x2, uint8_t *x3, c
 	serpent_store32(x3, w3);
 }
 
-void serpent_generateKeysSelf(BlockCipher *self, char *key)
+int serpent_generateKeysSelf(BlockCipher *self, char *key)
 {
-	*(struct Serpent *)self->cipherState = serpent_generateKeys(key);
+	struct Serpent *s = self->cipherState;
+	if (!serpent_key_ok(strlen(key)))
+	{
+		memset(s, 0, sizeof(*s));
+		return 0;
+	}
+	*s = serpent_generateKeys(key);
+	return 1;
 }
 
 void serpent_encryptBlock(BlockCipher *self, uint8_t *block)

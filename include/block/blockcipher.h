@@ -8,7 +8,14 @@ typedef struct BlockCipher BlockCipher;
 struct BlockCipher {
 	int blockSize;
 	void *cipherState;
-	void (*generateKeys)(BlockCipher *self, char *key);
+	/* Expands key into cipherState, returning 1 on success. If key is not a
+	   valid length for this cipher the return is 0 and cipherState is zeroed,
+	   so a rejected key can never be mistaken for a usable schedule.
+
+	   Keys are NUL-terminated hex strings, so a length here is in hex
+	   characters: a 16-byte key is 32 characters, not 16. Each cipher's
+	   accepted lengths are documented on its own generateKeysSelf. */
+	int (*generateKeys)(BlockCipher *self, char *key);
 	void (*encryptBlock)(BlockCipher *self, uint8_t *block);
 	void (*decryptBlock)(BlockCipher *self, uint8_t *block);
 };

@@ -81,31 +81,27 @@ static uint8_t aes_hexNibble(char c)
 	return 0;
 }
 
+/* AES accepts a 128, 192 or 256-bit key. The key arrives as a hex string, so
+   that is 32, 48 or 64 characters. Anything else used to be silently padded
+   with '0' up to the next size, which turned a 33-character key into a valid
+   AES-192 key with a '0' the caller never wrote. */
+static int aes_key_ok(size_t len)
+{
+	return len == 32 || len == 48 || len == 64;
+}
+
 struct AES aes_generateKeys(char* key)
 {
 	struct AES a;
 	char kbuf[65];
-	strncpy(kbuf, key, 64);
-	kbuf[64] = '\0';
-	int klen = (int)strlen(kbuf);
-	int target = 64;
-	if (klen <= 32)
-		target = 32;
-	else if (klen <= 48)
-		target = 48;
-	int m = target - klen;
-	if (m > 0)
+	int klen = (int)strlen(key);
+	if (!aes_key_ok((size_t)klen))
 	{
-		for (int i = 0; i < m; ++i)
-			kbuf[klen + i] = '0';
-		klen += m;
-		kbuf[klen] = '\0';
+		memset(&a, 0, sizeof(a));
+		return a;
 	}
-	if (klen > 64)
-	{
-		klen = 64;
-		kbuf[64] = '\0';
-	}
+	memcpy(kbuf, key, (size_t)klen);
+	kbuf[klen] = '\0';
 
 	int N = klen / 8;
 	int R = 1;
@@ -321,9 +317,16 @@ void aes_decrypt_block(uint8_t *p, const struct AES *a)
 	}
 }
 
-void aes_generateKeysSelf(BlockCipher *self, char *key)
+int aes_generateKeysSelf(BlockCipher *self, char *key)
 {
-	*(struct AES *)self->cipherState = aes_generateKeys(key);
+	struct AES *a = self->cipherState;
+	if (!aes_key_ok(strlen(key)))
+	{
+		memset(a, 0, sizeof(*a));
+		return 0;
+	}
+	*a = aes_generateKeys(key);
+	return 1;
 }
 
 void aes_encryptBlock(BlockCipher *self, uint8_t *block)

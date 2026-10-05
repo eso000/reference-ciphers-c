@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "block/des.h"
 #include "des_data.h"
@@ -90,10 +91,23 @@ static uint64_t des_permutate(uint64_t x, const uint8_t *P, int n, int base_size
 
 #define rotr28(xr, times) ((((xr) << (times)) | ((xr) >> (28 - (times)))) & 0xFFFFFFF)
 
+/* DES takes a 64-bit key, i.e. 16 hex characters. strtoull below reads at most
+   16 digits and stops at the first non-hex character, so a longer key used to
+   be accepted and quietly truncated to its first 16 characters. */
+static int des_key_ok(size_t len)
+{
+	return len == 16;
+}
+
 struct DES des_generateKeys(char* key)
 {
 	struct DES d;
 	d.use_alt = 1;
+	if (!des_key_ok(strlen(key)))
+	{
+		memset(&d, 0, sizeof(d));
+		return d;
+	}
 	uint64_t leftKey = strtoull(key, NULL, 16);
 	leftKey = des_permutate(leftKey, keyperm1, 56, 64);
 	uint64_t rightKey = leftKey & 0xFFFFFFF;
@@ -192,9 +206,16 @@ void des_decrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d)
 	*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1]; *(rb+3) = right.b[0];
 }
 
-void des_generateKeysSelf(BlockCipher *self, char *key)
+int des_generateKeysSelf(BlockCipher *self, char *key)
 {
-	*(struct DES *)self->cipherState = des_generateKeys(key);
+	struct DES *d = self->cipherState;
+	if (!des_key_ok(strlen(key)))
+	{
+		memset(d, 0, sizeof(*d));
+		return 0;
+	}
+	*d = des_generateKeys(key);
+	return 1;
 }
 
 void des_encryptBlock(BlockCipher *self, uint8_t *block)
