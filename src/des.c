@@ -3,13 +3,14 @@
 
 #include "block/des.h"
 #include "des_data.h"
+#include "force_inline.h"
 
 union word{
 	uint32_t w;
 	uint8_t b[4];
 };
 
-static inline uint32_t rol32(uint32_t x, int n)
+FORCE_INLINE uint32_t rol32(uint32_t x, int n)
 {
 	n &= 31;
 	if (!n)
@@ -17,7 +18,7 @@ static inline uint32_t rol32(uint32_t x, int n)
 	return (x << n) | (x >> (32 - n));
 }
 
-static inline uint32_t ror32(uint32_t x, int n)
+FORCE_INLINE uint32_t ror32(uint32_t x, int n)
 {
 	n &= 31;
 	if (!n)
@@ -89,7 +90,10 @@ static uint64_t des_permutate(uint64_t x, const uint8_t *P, int n, int base_size
 	return result;
 }
 
-#define rotl28(xr, times) ((((xr) << (times)) | ((xr) >> (28 - (times)))) & 0xFFFFFFF)
+FORCE_INLINE uint64_t des_rotl28(uint64_t x, int n)
+{
+	return ((x << n) | (x >> (28 - n))) & 0xFFFFFFF;
+}
 
 /* DES takes a 64-bit key, i.e. 16 hex characters. strtoull below reads at most
    16 digits and stops at the first non-hex character, so a longer key used to
@@ -118,25 +122,33 @@ struct DES des_generateKeys(char* key)
 		shift = 2;
 		if ((i + 1 == 1) || (i + 1 == 2) || (i + 1 == 9) || (i + 1 == 16))
 			shift = 1;
-		leftKey = rotl28(leftKey, shift);
-		rightKey = rotl28(rightKey, shift);
+		leftKey = des_rotl28(leftKey, shift);
+		rightKey = des_rotl28(rightKey, shift);
 		d.Subkeys[i] = des_permutate((leftKey << 28) | rightKey, keyperm2, 48, 56);
 	}
 	return d;
 }
 
-#define F(x, i) temp = des_permutate((x).w, ExpentionPerm, 48, 32) ^ d->Subkeys[i];\
-				if (d->use_alt)\
-				temp = SPBox[0][(temp >> 42) & 0x3f] ^ SPBox[1][(temp >> 36) & 0x3f] ^ SPBox[2][(temp >> 30) & 0x3f] ^ SPBox[3][(temp >> 24) & 0x3f]\
-				^ SPBox[4][(temp >> 18) & 0x3f] ^ SPBox[5][(temp >> 12) & 0x3f] ^ SPBox[6][(temp >> 6) & 0x3f] ^ SPBox[7][temp & 0x3f];\
-				else {\
-				temp = ((uint32_t)SBoxes0[(temp >> 42) & 0x3f] << 28) | ((uint32_t)SBoxes1[(temp >> 36) & 0x3f] << 24)\
-				| ((uint32_t)SBoxes2[(temp >> 30) & 0x3f] << 20) | ((uint32_t)SBoxes3[(temp >> 24) & 0x3f] << 16)\
-				| ((uint32_t)SBoxes4[(temp >> 18) & 0x3f] << 12) | ((uint32_t)SBoxes5[(temp >> 12) & 0x3f] << 8)\
-				| ((uint32_t)SBoxes6[(temp >> 6) & 0x3f] << 4) | (uint32_t)SBoxes7[temp & 0x3f];\
-				temp = des_permutate(temp, PBox, 32, 32);\
-				}
-#define round(l, r, i) F(r, i); (l).w ^= temp;
+/* The round function f(R, K): expansion, key mixing, the S-boxes and P. The
+   alternative path uses SPBox, which fuses each S-box with its share of P. */
+FORCE_INLINE uint32_t des_f(uint32_t r, uint64_t k, const struct DES *d)
+{
+	uint64_t t = des_permutate(r, ExpentionPerm, 48, 32) ^ k;
+	if (d->use_alt)
+		return SPBox[0][(t >> 42) & 0x3f] ^ SPBox[1][(t >> 36) & 0x3f] ^ SPBox[2][(t >> 30) & 0x3f] ^ SPBox[3][(t >> 24) & 0x3f]
+			^ SPBox[4][(t >> 18) & 0x3f] ^ SPBox[5][(t >> 12) & 0x3f] ^ SPBox[6][(t >> 6) & 0x3f] ^ SPBox[7][t & 0x3f];
+
+	uint32_t s = ((uint32_t)SBoxes0[(t >> 42) & 0x3f] << 28) | ((uint32_t)SBoxes1[(t >> 36) & 0x3f] << 24)
+		| ((uint32_t)SBoxes2[(t >> 30) & 0x3f] << 20) | ((uint32_t)SBoxes3[(t >> 24) & 0x3f] << 16)
+		| ((uint32_t)SBoxes4[(t >> 18) & 0x3f] << 12) | ((uint32_t)SBoxes5[(t >> 12) & 0x3f] << 8)
+		| ((uint32_t)SBoxes6[(t >> 6) & 0x3f] << 4) | (uint32_t)SBoxes7[t & 0x3f];
+	return (uint32_t)des_permutate(s, PBox, 32, 32);
+}
+
+FORCE_INLINE void des_round(union word *l, const union word *r, int i, const struct DES *d)
+{
+	l->w ^= des_f(r->w, d->Subkeys[i], d);
+}
 
 void des_encrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d)
 {
@@ -152,14 +164,14 @@ void des_encrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d)
 	left.w = temp >> 32;
 	right.w = temp & 0xffffffff;
 
-	round (left, right, 0) ;  round (right, left, 1) ;
-	round (left, right, 2) ;  round (right, left, 3) ;
-	round (left, right, 4) ;  round (right, left, 5) ;
-	round (left, right, 6) ;  round (right, left, 7) ;
-	round (left, right, 8) ;  round (right, left, 9) ;
-	round (left, right, 10) ; round (right, left, 11) ;
-	round (left, right, 12) ; round (right, left, 13) ;
-	round (left, right, 14) ; round (right, left, 15) ;
+	des_round(&left, &right, 0, d);  des_round(&right, &left, 1, d);
+	des_round(&left, &right, 2, d);  des_round(&right, &left, 3, d);
+	des_round(&left, &right, 4, d);  des_round(&right, &left, 5, d);
+	des_round(&left, &right, 6, d);  des_round(&right, &left, 7, d);
+	des_round(&left, &right, 8, d);  des_round(&right, &left, 9, d);
+	des_round(&left, &right, 10, d); des_round(&right, &left, 11, d);
+	des_round(&left, &right, 12, d); des_round(&right, &left, 13, d);
+	des_round(&left, &right, 14, d); des_round(&right, &left, 15, d);
 
 	if (d->use_alt)
 		temp = des_fp_perm_alt((uint64_t)right.w << 32 | left.w);
@@ -186,14 +198,14 @@ void des_decrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d)
 	left.w = temp >> 32;
 	right.w = temp & 0xffffffff;
 
-	round (left, right, 15) ;  round (right, left, 14) ;
-	round (left, right, 13) ;  round (right, left, 12) ;
-	round (left, right, 11) ;  round (right, left, 10) ;
-	round (left, right,  9) ;  round (right, left,  8) ;
-	round (left, right,  7) ;  round (right, left,  6) ;
-	round (left, right,  5) ;  round (right, left,  4) ;
-	round (left, right,  3) ;  round (right, left,  2) ;
-	round (left, right,  1) ;  round (right, left,  0) ;
+	des_round(&left, &right, 15, d);  des_round(&right, &left, 14, d);
+	des_round(&left, &right, 13, d);  des_round(&right, &left, 12, d);
+	des_round(&left, &right, 11, d);  des_round(&right, &left, 10, d);
+	des_round(&left, &right, 9, d);  des_round(&right, &left, 8, d);
+	des_round(&left, &right, 7, d);  des_round(&right, &left, 6, d);
+	des_round(&left, &right, 5, d);  des_round(&right, &left, 4, d);
+	des_round(&left, &right, 3, d);  des_round(&right, &left, 2, d);
+	des_round(&left, &right, 1, d);  des_round(&right, &left, 0, d);
 
 	if (d->use_alt)
 		temp = des_fp_perm_alt((uint64_t)right.w << 32 | left.w);
