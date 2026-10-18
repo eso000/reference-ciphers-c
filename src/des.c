@@ -89,7 +89,7 @@ static uint64_t des_permutate(uint64_t x, const uint8_t *P, int n, int base_size
 	return result;
 }
 
-#define rotr28(xr, times) ((((xr) << (times)) | ((xr) >> (28 - (times)))) & 0xFFFFFFF)
+#define rotl28(xr, times) ((((xr) << (times)) | ((xr) >> (28 - (times)))) & 0xFFFFFFF)
 
 /* DES takes a 64-bit key, i.e. 16 hex characters. strtoull below reads at most
    16 digits and stops at the first non-hex character, so a longer key used to
@@ -118,8 +118,8 @@ struct DES des_generateKeys(char* key)
 		shift = 2;
 		if ((i + 1 == 1) || (i + 1 == 2) || (i + 1 == 9) || (i + 1 == 16))
 			shift = 1;
-		leftKey = rotr28(leftKey, shift);
-		rightKey = rotr28(rightKey, shift);
+		leftKey = rotl28(leftKey, shift);
+		rightKey = rotl28(rightKey, shift);
 		d.Subkeys[i] = des_permutate((leftKey << 28) | rightKey, keyperm2, 48, 56);
 	}
 	return d;
