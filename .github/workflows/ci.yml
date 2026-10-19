@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gcc
+            cc: gcc
+            cflags: -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror
+          - name: clang
+            cc: clang
+            cflags: -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror
+          - name: gcc + ASan/UBSan
+            cc: gcc
+            cflags: >-
+              -std=c11 -O1 -g -Wall -Wextra -Wpedantic -Werror
+              -fsanitize=address,undefined -fno-omit-frame-pointer
+          - name: clang + ASan/UBSan
+            cc: clang
+            cflags: >-
+              -std=c11 -O1 -g -Wall -Wextra -Wpedantic -Werror
+              -fsanitize=address,undefined -fno-omit-frame-pointer
+    steps:
+      - uses: actions/checkout@v4
+      # The default compiler is gcc; the matrix passes CC explicitly, and the
+      # Makefile defaults to gcc without clobbering an environment or command
+      # line choice. Every test links the whole library, so one make test run
+      # covers all five ciphers, the mode layer and the padding helpers.
+      - name: Build and run tests
+        run: make CC="${{ matrix.cc }}" CFLAGS="${{ matrix.cflags }}" test
+
+  coverage:
+    name: Coverage (gcovr)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build instrumented, then run the tests
+        run: make CC=gcc CFLAGS="-std=c11 -O0 -g -Wall -Wextra -Wpedantic --coverage" test
+      - name: Install gcovr
+        run: pip install gcovr
+      # gcovr merges the per-binary objects that the single-command test build
+      # produces, so the report is whole-library coverage and not just whichever
+      # test binary was linked last.
+      - name: Report
+        run: |
+          gcovr --root . --xml-pretty -o coverage.xml
+          gcovr --root . --txt --print-summary
+          {
+            echo "### Coverage"
+            echo
+            echo '```'
+            gcovr --root . --txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false

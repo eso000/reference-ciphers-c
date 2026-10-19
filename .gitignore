@@ -3,8 +3,22 @@
 *.so
 *.out
 build/
+
+# Coverage instrumentation left behind by gcc -fprofile-arcs/--coverage.
+*.gcno
+*.gcda
+*.gcov
+*.profraw
+*.profdata
+coverage.xml
+
+# Editor and tooling droppings.
 *.swp
 *.swo
 *~
 .DS_Store
 tags
+TAGS
+compile_commands.json
+.cache/
+.clangd/

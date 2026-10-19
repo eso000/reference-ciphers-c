@@ -1,4 +1,9 @@
-CC ?= gcc
+# ?= would not work here. Make gives CC a built-in default of "cc", so CC is
+# always defined and a conditional assignment never fires: the compiler would
+# stay cc while the line looked like it chose gcc. Default to gcc only while CC
+# is still that built-in default or unset, which leaves the environment and the
+# command line free to pick something else (make CC=clang ...).
+CC := $(if $(filter default undefined,$(origin CC)),gcc,$(CC))
 CFLAGS ?= -std=c11 -O2
 
 INC_DIR := include
