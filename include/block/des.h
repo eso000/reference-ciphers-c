@@ -14,6 +14,10 @@ struct DES{
    i.e. a 64-bit key. */
 struct DES des_generateKeys(const uint8_t *key, size_t len);
 
+/* Returns 1 if key is a length DES accepts. generateKeys uses the same check,
+   so a caller can ask before building a schedule. */
+int des_keyOk(const uint8_t *key, size_t len);
+
 uint64_t des_ip_perm_alt(uint64_t block);
 
 uint64_t des_fp_perm_alt(uint64_t block);

@@ -75,24 +75,25 @@ void blowfish_decrypt_block(uint8_t *lb, uint8_t *rb, const struct Blowfish *bf)
 	store32_be(lb, right);
 }
 
-/* Blowfish takes a key of 32 to 448 bits, i.e. 4 to 56 bytes. The schedule
-   consumes four key bytes (one 32-bit word) at a time and wraps with
-   (4 * i) % len, which is the algorithm's own key-cycling rule, so every
-   length in the range is usable.
+/* Returns 1 when key is a usable Blowfish key: 32 to 448 bits, i.e. 4 to 56
+   bytes. The schedule consumes four key bytes (one 32-bit word) at a time and
+   wraps with (4 * i) % len, which is the algorithm's own key-cycling rule, so
+   every length in the range is usable.
 
-   The length guard is also what keeps (4 * i) % len from dividing by zero:
-   an empty key used to raise SIGFPE. With hex strings this function also
-   required a multiple of 8 characters, because a read of 8 characters would
-   otherwise straddle the terminating NUL; raw bytes have no terminator to
-   straddle, so that restriction is gone. */
-static int blowfish_key_ok(size_t len)
+   The length check is also what keeps (4 * i) % len from dividing by zero: an
+   empty key used to raise SIGFPE. With hex strings this function also required
+   a multiple of 8 characters, because a read of 8 would otherwise straddle the
+   terminating NUL; raw bytes have no terminator to straddle, so that
+   restriction is gone. Both entry points and BlockCipher.keyOk route through
+   this one answer. */
+int blowfish_keyOk(const uint8_t *key, size_t len)
 {
-	return len >= 4 && len <= 56;
+	return key != NULL && len >= 4 && len <= 56;
 }
 
 struct Blowfish blowfish_generateKeys(const uint8_t *key, size_t len)
 {
-	if (key == NULL || !blowfish_key_ok(len))
+	if (!blowfish_keyOk(key, len))
 	{
 		struct Blowfish bad;
 		memset(&bad, 0, sizeof(bad));
@@ -153,7 +154,7 @@ struct Blowfish blowfish_generateKeys(const uint8_t *key, size_t len)
 int blowfish_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 {
 	struct Blowfish *bf = self->cipherState;
-	if (key == NULL || !blowfish_key_ok(len))
+	if (!blowfish_keyOk(key, len))
 	{
 		memset(bf, 0, sizeof(*bf));
 		return 0;
@@ -174,6 +175,12 @@ void blowfish_decryptBlock(BlockCipher *self, uint8_t *block)
 
 BlockCipher blowfish_cipher(void *state)
 {
-	BlockCipher c = {8, state, blowfish_generateKeysSelf, blowfish_encryptBlock, blowfish_decryptBlock};
+	BlockCipher c;
+	c.blockSize = 8;
+	c.cipherState = state;
+	c.generateKeys = blowfish_generateKeysSelf;
+	c.keyOk = blowfish_keyOk;
+	c.encryptBlock = blowfish_encryptBlock;
+	c.decryptBlock = blowfish_decryptBlock;
 	return c;
 }

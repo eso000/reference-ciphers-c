@@ -20,6 +20,10 @@ struct Twofish{
    or 32 bytes, i.e. a 128, 192 or 256-bit key. */
 struct Twofish twofish_generateKeys(const uint8_t *mkey, size_t ksize);
 
+/* Returns 1 if key is a length Twofish accepts. generateKeys uses the same
+   check, so a caller can ask before building a schedule. */
+int twofish_keyOk(const uint8_t *key, size_t len);
+
 void twofish_encrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf);
 
 void twofish_decrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf);

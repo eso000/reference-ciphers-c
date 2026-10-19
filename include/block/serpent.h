@@ -16,6 +16,10 @@ struct Serpent{
    key, so a full byte is the smallest here. */
 struct Serpent serpent_generateKeys(const uint8_t *key, size_t len);
 
+/* Returns 1 if key is a length Serpent accepts. generateKeys uses the same
+   check, so a caller can ask before building a schedule. */
+int serpent_keyOk(const uint8_t *key, size_t len);
+
 void serpent_encrypt_block(uint8_t *x0, uint8_t *x1, uint8_t *x2, uint8_t *x3, const struct Serpent *s);
 
 void serpent_decrypt_block(uint8_t *x0, uint8_t *x1, uint8_t *x2, uint8_t *x3, const struct Serpent *s);

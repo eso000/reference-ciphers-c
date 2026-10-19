@@ -151,15 +151,17 @@ uint8_t RSAmul(int i, uint8_t *p)
 	return result;
 }
 
-/* Twofish accepts a 128, 192 or 256-bit key, i.e. 16, 24 or 32 bytes. */
-static int twofish_key_ok(size_t len)
+/* Returns 1 when key is a usable Twofish key: 128, 192 or 256 bits, i.e. 16,
+   24 or 32 bytes. Both entry points and BlockCipher.keyOk route through this
+   one answer. */
+int twofish_keyOk(const uint8_t *key, size_t len)
 {
-	return len == 16 || len == 24 || len == 32;
+	return key != NULL && (len == 16 || len == 24 || len == 32);
 }
 
 struct Twofish twofish_generateKeys(const uint8_t *mkey, size_t ksize)
 {
-	if (mkey == NULL || !twofish_key_ok(ksize)){
+	if (!twofish_keyOk(mkey, ksize)){
 		struct Twofish bad;
 		memset(&bad, 0, sizeof(bad));
 		return bad;
@@ -329,7 +331,7 @@ void twofish_decrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb
 int twofish_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 {
 	struct Twofish *tf = self->cipherState;
-	if (key == NULL || !twofish_key_ok(len))
+	if (!twofish_keyOk(key, len))
 	{
 		memset(tf, 0, sizeof(*tf));
 		return 0;
@@ -350,6 +352,12 @@ void twofish_decryptBlock(BlockCipher *self, uint8_t *block)
 
 BlockCipher twofish_cipher(void *state)
 {
-	BlockCipher c = {16, state, twofish_generateKeysSelf, twofish_encryptBlock, twofish_decryptBlock};
+	BlockCipher c;
+	c.blockSize = 16;
+	c.cipherState = state;
+	c.generateKeys = twofish_generateKeysSelf;
+	c.keyOk = twofish_keyOk;
+	c.encryptBlock = twofish_encryptBlock;
+	c.decryptBlock = twofish_decryptBlock;
 	return c;
 }

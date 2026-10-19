@@ -8,7 +8,11 @@
    Keys are raw bytes, so every length below is a byte count. AES and Twofish
    want 16-, 24- or 32-byte keys and DES wants 8, so any other length has to be
    refused; Blowfish and Serpent accept a range. A NULL key is refused by every
-   cipher, whatever the length says. */
+   cipher, whatever the length says.
+
+   Every case here also asserts that the keyOk query agrees with generateKeys:
+   accepts() compares the two and aborts on a disagreement, so the matrix below
+   is a check of both entry points at once. */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,17 +37,20 @@ typedef struct {
 	   only 8 bytes, so a 32-byte key would be rejected there and the
 	   comparison below would compare two zeroed states. */
 	size_t validLen;
+	/* The cipher's exported validator, which its constructor must install as
+	   BlockCipher.keyOk. */
+	int (*keyOkFn)(const uint8_t *key, size_t len);
 } CipherInfo;
 
 /* stateSize is deliberately generous. Blowfish's struct is about 4 KiB of
    S-boxes, so a tight allocation here would corrupt the heap rather than
    exercise the key check. */
 static const CipherInfo CIPHERS[] = {
-	{"AES", aes_cipher, 16, 8192, 16},
-	{"DES", des_cipher, 8, 8192, 8},
-	{"Blowfish", blowfish_cipher, 8, 8192, 16},
-	{"Serpent", serpent_cipher, 16, 8192, 32},
-	{"Twofish", twofish_cipher, 16, 8192, 16},
+	{"AES", aes_cipher, 16, 8192, 16, aes_keyOk},
+	{"DES", des_cipher, 8, 8192, 8, des_keyOk},
+	{"Blowfish", blowfish_cipher, 8, 8192, 16, blowfish_keyOk},
+	{"Serpent", serpent_cipher, 16, 8192, 32, serpent_keyOk},
+	{"Twofish", twofish_cipher, 16, 8192, 16, twofish_keyOk},
 };
 
 /* Blowfish's published set_key vectors: the ciphertext of FEDCBA9876543210
@@ -91,12 +98,23 @@ static uint8_t *makeKey(size_t len)
 	return key;
 }
 
-/* Returns the cipher's 1/0 verdict on the key, allocating and freeing the state. */
+/* Returns the cipher's 1/0 verdict on the key, allocating and freeing the state.
+   Every case in this file runs through here, so the keyOk query is compared
+   with generateKeys across the whole accept/reject matrix, not just the cases
+   spelled out in testKeyOkQuery. A disagreement is a bug in the port, so it
+   aborts rather than counting one more failure. */
 static int accepts(const CipherInfo *info, const uint8_t *key, size_t len)
 {
 	void *state = calloc(1, info->stateSize);
 	BlockCipher c = info->ctor(state);
 	int ok = c.generateKeys(&c, key, len);
+	int queried = c.keyOk(key, len);
+	if (ok != queried)
+	{
+		fprintf(stderr, "%s: keyOk=%d but generateKeys=%d for length %zu\n",
+			info->name, queried, ok, len);
+		exit(2);
+	}
 	free(state);
 	return ok;
 }
@@ -392,9 +410,56 @@ static void testBlowfishSchedules(void)
 	}
 }
 
+/* keyOk answers the length question without building a schedule, and it is the
+   same predicate generateKeys uses, so the two can never disagree: that is
+   asserted for every accept/reject case through accepts(). This section pins
+   the query itself, the wiring that installs each cipher's validator on the
+   struct, and the exported validators that back the pointer. */
+static void testKeyOkQuery(void)
+{
+	printf("== the keyOk query answers before a schedule is built ==\n");
+	for (size_t i = 0; i < CIPHER_COUNT; ++i)
+	{
+		const CipherInfo *info = &CIPHERS[i];
+		void *state = calloc(1, info->stateSize);
+		BlockCipher c = info->ctor(state);
+		uint8_t *good = makeKey(info->validLen);
+		char name[128];
+
+		snprintf(name, sizeof(name), "%s installs its validator as keyOk", info->name);
+		CHECK(c.keyOk == info->keyOkFn, name);
+
+		snprintf(name, sizeof(name), "%s keyOk accepts its reference length", info->name);
+		CHECK(c.keyOk(good, info->validLen) == 1, name);
+		snprintf(name, sizeof(name), "%s keyOk refuses an over-long key", info->name);
+		CHECK(c.keyOk(good, 80) == 0, name);
+		snprintf(name, sizeof(name), "%s keyOk refuses an empty key", info->name);
+		CHECK(c.keyOk(good, 0) == 0, name);
+		snprintf(name, sizeof(name), "%s keyOk refuses a NULL key", info->name);
+		CHECK(c.keyOk(NULL, info->validLen) == 0, name);
+
+		free(good);
+		free(state);
+	}
+
+	/* The exported validators are public in each cipher's header; the struct
+	   pointer is set to one of these, so checking them directly is checking
+	   what the pointer reaches. */
+	{
+		uint8_t key[32];
+		memset(key, 0x5a, sizeof(key));
+		CHECK(aes_keyOk(key, 16) && !aes_keyOk(key, 15), "aes_keyOk: 16 bytes in, 15 out");
+		CHECK(des_keyOk(key, 8) && !des_keyOk(key, 9), "des_keyOk: 8 bytes in, 9 out");
+		CHECK(blowfish_keyOk(key, 56) && !blowfish_keyOk(key, 57), "blowfish_keyOk: 56 bytes in, 57 out");
+		CHECK(serpent_keyOk(key, 1) && !serpent_keyOk(key, 33), "serpent_keyOk: 1 byte in, 33 out");
+		CHECK(twofish_keyOk(key, 32) && !twofish_keyOk(key, 31), "twofish_keyOk: 32 bytes in, 31 out");
+	}
+}
+
 int main(void)
 {
 	testEmptyKeyRejected();
+	testKeyOkQuery();
 	testLengths();
 	testByValueEntryPoints();
 	testBlowfishSchedules();

@@ -340,19 +340,20 @@ FORCE_INLINE void serpent_invRound(uint32_t *x0, uint32_t *x1, uint32_t *x2, uin
 	serpent_addRoundKey(x0, x1, x2, x3, i, s);
 }
 
-/* Serpent accepts any key from 1 to 256 bits, i.e. 1 to 32 bytes. Only a
-   NULL, empty or over-long key is rejected: the spec's Section 3 padding
-   below would otherwise turn an empty key into the all-zero key and truncate
-   past 32 bytes without telling the caller. */
-static int serpent_key_ok(size_t len)
+/* Returns 1 when key is a usable Serpent key: 1 to 256 bits, i.e. 1 to 32
+   bytes. Only a NULL, empty or over-long key is refused: the Section 3
+   padding would otherwise turn an empty key into the all-zero key and
+   truncate past 32 bytes without telling the caller. Both entry points and
+   BlockCipher.keyOk route through this one answer. */
+int serpent_keyOk(const uint8_t *key, size_t len)
 {
-	return len >= 1 && len <= 32;
+	return key != NULL && len >= 1 && len <= 32;
 }
 
 struct Serpent serpent_generateKeys(const uint8_t *key, size_t len)
 {
 	struct Serpent s;
-	if (key == NULL || !serpent_key_ok(len))
+	if (!serpent_keyOk(key, len))
 	{
 		memset(&s, 0, sizeof(s));
 		return s;
@@ -479,7 +480,7 @@ void serpent_decrypt_block(uint8_t *x0, uint8_t *x1, uint8_t *x2, uint8_t *x3, c
 int serpent_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 {
 	struct Serpent *s = self->cipherState;
-	if (key == NULL || !serpent_key_ok(len))
+	if (!serpent_keyOk(key, len))
 	{
 		memset(s, 0, sizeof(*s));
 		return 0;
@@ -504,6 +505,7 @@ BlockCipher serpent_cipher(void *state)
 	c.blockSize = 16;
 	c.cipherState = state;
 	c.generateKeys = serpent_generateKeysSelf;
+	c.keyOk = serpent_keyOk;
 	c.encryptBlock = serpent_encryptBlock;
 	c.decryptBlock = serpent_decryptBlock;
 	return c;

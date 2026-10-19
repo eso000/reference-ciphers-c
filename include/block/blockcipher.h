@@ -17,6 +17,10 @@ struct BlockCipher {
 	   a NULL key is rejected outright. Each cipher's accepted lengths are
 	   documented on its own generateKeys. */
 	int (*generateKeys)(BlockCipher *self, const uint8_t *key, size_t len);
+	/* Returns 1 if this cipher accepts key, without reading or writing any
+	   state. generateKeys routes through the same check, so a caller can ask
+	   the question up front and the two answers cannot disagree. */
+	int (*keyOk)(const uint8_t *key, size_t len);
 	void (*encryptBlock)(BlockCipher *self, uint8_t *block);
 	void (*decryptBlock)(BlockCipher *self, uint8_t *block);
 };

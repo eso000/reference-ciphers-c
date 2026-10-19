@@ -19,6 +19,10 @@ struct Blowfish{
    own rule and needs no alignment. */
 struct Blowfish blowfish_generateKeys(const uint8_t *key, size_t len);
 
+/* Returns 1 if key is a length Blowfish accepts. generateKeys uses the same
+   check, so a caller can ask before building a schedule. */
+int blowfish_keyOk(const uint8_t *key, size_t len);
+
 void blowfish_encrypt_block(uint8_t *lb, uint8_t *rb, const struct Blowfish *bf);
 
 void blowfish_decrypt_block(uint8_t *lb, uint8_t *rb, const struct Blowfish *bf);

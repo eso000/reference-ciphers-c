@@ -14,6 +14,10 @@ struct AES{
    32 bytes, i.e. a 128, 192 or 256-bit key. */
 struct AES aes_generateKeys(const uint8_t *key, size_t len);
 
+/* Returns 1 if key is a length AES accepts. generateKeys uses the same check,
+   so a caller can ask before building a schedule. */
+int aes_keyOk(const uint8_t *key, size_t len);
+
 void aes_encrypt_block(uint8_t *p, const struct AES *a);
 
 void aes_decrypt_block(uint8_t *p, const struct AES *a);

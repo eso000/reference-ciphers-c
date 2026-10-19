@@ -98,19 +98,22 @@ FORCE_INLINE void aes_invRound(uint32_t cols[4], uint32_t tmp[4], const uint32_t
 	aes_invShiftRowsSubBytes(tmp, cols);
 }
 
-/* AES accepts a 128, 192 or 256-bit key, i.e. 16, 24 or 32 bytes. Anything
-   else used to be silently padded with '0' up to the next size, which turned
-   a 33-character key into a valid AES-192 key with a '0' the caller never
-   wrote. A NULL key is refused for the same reason: it has no bytes to read. */
-static int aes_key_ok(size_t len)
+/* Returns 1 when key is a usable AES key: 128, 192 or 256 bits, i.e. 16, 24
+   or 32 bytes. Both entry points route through this, and BlockCipher.keyOk
+   is set to it, so a caller can ask the question without allocating a
+   schedule and the two answers cannot disagree. Anything else used to be
+   silently padded with '0' up to the next size, which turned a 33-character
+   key into a valid AES-192 key with a '0' the caller never wrote. A NULL key
+   is refused for the same reason: it has no bytes to read. */
+int aes_keyOk(const uint8_t *key, size_t len)
 {
-	return len == 16 || len == 24 || len == 32;
+	return key != NULL && (len == 16 || len == 24 || len == 32);
 }
 
 struct AES aes_generateKeys(const uint8_t *key, size_t len)
 {
 	struct AES a;
-	if (key == NULL || !aes_key_ok(len))
+	if (!aes_keyOk(key, len))
 	{
 		memset(&a, 0, sizeof(a));
 		return a;
@@ -333,7 +336,7 @@ void aes_decrypt_block(uint8_t *p, const struct AES *a)
 int aes_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 {
 	struct AES *a = self->cipherState;
-	if (key == NULL || !aes_key_ok(len))
+	if (!aes_keyOk(key, len))
 	{
 		memset(a, 0, sizeof(*a));
 		return 0;
@@ -358,6 +361,7 @@ BlockCipher aes_cipher(void *state)
 	c.blockSize = 16;
 	c.cipherState = state;
 	c.generateKeys = aes_generateKeysSelf;
+	c.keyOk = aes_keyOk;
 	c.encryptBlock = aes_encryptBlock;
 	c.decryptBlock = aes_decryptBlock;
 	return c;
