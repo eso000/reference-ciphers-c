@@ -25,6 +25,24 @@ struct BlockCipher {
 	void (*decryptBlock)(BlockCipher *self, uint8_t *block);
 };
 
+/* Mode wrappers. plt is len bytes, enciphered in place.
+
+   ECB, CBC and PCBC are block modes: they need len to be a whole number of
+   blocks. A trailing partial block is left untouched and is not reported --
+   the functions return void, so callers must pad to blockSize first (padding.h
+   has the schemes). Pass a length that is not a multiple of blockSize and the
+   tail simply comes back unchanged.
+
+   CFB, OFB and CTR are keystream modes and take any length. When len is not a
+   multiple of blockSize the final partial block is XORed against the leading
+   bytes of one more keystream block, which is what the Python reference does;
+   nothing is written past the len bytes.
+
+   iv is one block for every mode except ECB. The keystream modes and
+   cipherEncryptCBC read it and leave the caller's copy alone.
+   cipherDecryptCBC and cipherDecryptPCBC advance it, so a caller that wants
+   the original back must keep its own copy. */
+
 void cipherEncryptECB(BlockCipher *c, uint8_t *plt, int len);
 
 void cipherDecryptECB(BlockCipher *c, uint8_t *plt, int len);

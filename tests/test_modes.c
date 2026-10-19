@@ -104,15 +104,24 @@ struct CipherDef
 	const char *name;
 	BlockCipher (*ctor)(void *);
 	int blockSize;
+	int keyLen;
 };
 
 static const struct CipherDef CIPHER_DEFS[] = {
-	{"AES", aes_cipher, 16},
-	{"DES", des_cipher, 8},
-	{"Blowfish", blowfish_cipher, 8},
-	{"Serpent", serpent_cipher, 16},
-	{"Twofish", twofish_cipher, 16},
+	{"AES", aes_cipher, 16, 16},
+	{"DES", des_cipher, 8, 8},
+	{"Blowfish", blowfish_cipher, 8, 16},
+	{"Serpent", serpent_cipher, 16, 16},
+	{"Twofish", twofish_cipher, 16, 16},
 };
+
+static const struct CipherDef *findCipher(const char *name)
+{
+	for (size_t i = 0; i < sizeof CIPHER_DEFS / sizeof CIPHER_DEFS[0]; ++i)
+		if (strcmp(CIPHER_DEFS[i].name, name) == 0)
+			return &CIPHER_DEFS[i];
+	return NULL;
+}
 
 /* Run one four-block vector both ways. The published ciphertext is what gets
    decrypted, not our own output, so a matched pair of wrong encrypt and
@@ -121,11 +130,7 @@ static void runModeKat(const struct ModeKat *k)
 {
 	char name[128];
 	union State st;
-	const struct CipherDef *def = NULL;
-
-	for (size_t i = 0; i < sizeof CIPHER_DEFS / sizeof CIPHER_DEFS[0]; ++i)
-		if (strcmp(CIPHER_DEFS[i].name, k->cipher) == 0)
-			def = &CIPHER_DEFS[i];
+	const struct CipherDef *def = findCipher(k->cipher);
 
 	if (def == NULL)
 	{
@@ -158,6 +163,122 @@ static void runModeKat(const struct ModeKat *k)
 	CHECK(memcmp(v, pt, 64) == 0, name);
 }
 
+/* Short final blocks for the keystream modes. The plaintext is 0x40 + i, so a
+   wrong tail is easy to spot. The AES, DES and Blowfish entries agree with
+   OpenSSL 3.5.9; Twofish and Serpent have no OpenSSL to compare with and rest
+   on the Python reference, as the CBC entries above do. */
+struct TailKat
+{
+	const char *cipher;
+	int mode;
+	int len;
+	const char *key;
+	const char *iv;
+	const char *ciphertext;
+};
+
+static const struct TailKat TAIL_KATS[] = {
+	{"AES", 3, 71, "2b7e151628aed2a6abf7158809cf4f3c", "000102030405060708090a0b0c0d0e0f",
+	 "10bf258fdd2874f192407da2d7e2a22f8924f2a21fc0f272145dedd5a1bce059"
+	 "217686b9dbf031f8974fade25a6f89dd02b8a1766037d6bf56e5f81650e7b6250"
+	 "48feb926fe3e4"},
+	{"AES", 4, 71, "2b7e151628aed2a6abf7158809cf4f3c", "000102030405060708090a0b0c0d0e0f",
+	 "10bf258fdd2874f192407da2d7e2a22f89f588895cc775c833d2672ddcbc082b"
+	 "c7e97b3b5b666e80ced65cda5407d14cb6a2331e5d632a18b3f72bd95bc7e731e"
+	 "a1b1861bf1bc1"},
+	{"AES", 5, 71, "2b7e151628aed2a6abf7158809cf4f3c", "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+	 "accd9d30dc253af7ba9b5c3ea6d3efab667a2e6f3326073440f92d8ca00d2df1"
+	 "0a4da11b1cec5128d6dda2707bd7022b98ed4bec8484eeb1ac734ba06911d5813"
+	 "08cc57b900f17"},
+	{"DES", 3, 27, "133457799BBCDFF1", "0001020304050607",
+	 "9e211e8ab4ca2128916a29b55c5b78e2872a55a689c32dc7ad83d8"},
+	{"DES", 4, 27, "133457799BBCDFF1", "0001020304050607",
+	 "9e211e8ab4ca2128a75e2affa163109d5cee280a5fa213cd31d963"},
+	{"DES", 5, 27, "133457799BBCDFF1", "0001020304050607",
+	 "9e211e8ab4ca2128de4f7d3c5ccb2c5df8e82e8ceda04fdb9f1131"},
+	{"Blowfish", 3, 27, "F0E1D2C3B4A5968778695A4B3C2D1E0F", "0001020304050607",
+	 "249da44b3451a44d80fe7bb17fa751ad379f66df9462a201d4bd0e"},
+	{"Blowfish", 4, 27, "F0E1D2C3B4A5968778695A4B3C2D1E0F", "0001020304050607",
+	 "249da44b3451a44dc1379d56391b4f3fbdbd2cbdb9db00108a15fa"},
+	{"Blowfish", 5, 27, "F0E1D2C3B4A5968778695A4B3C2D1E0F", "0001020304050607",
+	 "249da44b3451a44d34197b3444394ddb4a8b06691739cb74c503ea"},
+	{"Twofish", 3, 41, "000102030405060708090a0b0c0d0e0f", "000102030405060708090a0b0c0d0e0f",
+	 "dff77174515eaf805b4f9b12a637b4eb2c468f642a8c50e60fa86475e768261d"
+	 "9b356459138d94ddc1"},
+	{"Serpent", 3, 41, "000102030405060708090a0b0c0d0e0f", "000102030405060708090a0b0c0d0e0f",
+	 "0c3cc871c437e46bca7700547680ef2289f8cd5946d29ec3ac9bf095f7c8e141"
+	 "ae0cfec5aade8bee03"},
+};
+
+static void runTailKat(const struct TailKat *k)
+{
+	char name[128];
+	union State st;
+	const struct CipherDef *def = findCipher(k->cipher);
+	uint8_t key[32], pt[80], ct[80], v[80], iv[16], iv2[16];
+
+	if (def == NULL)
+	{
+		snprintf(name, sizeof(name), "tail kat names a known cipher (%s)", k->cipher);
+		CHECK(0, name);
+		return;
+	}
+
+	hexDecode(k->key, key);
+	hexDecode(k->ciphertext, ct);
+	hexDecode(k->iv, iv);
+	memcpy(iv2, iv, def->blockSize);
+	for (int i = 0; i < k->len; ++i)
+		pt[i] = (uint8_t)(0x40 + i);
+
+	BlockCipher c = def->ctor(&st);
+	c.generateKeys(&c, key, hexLen(k->key));
+
+	memcpy(v, pt, k->len);
+	ENC_FNS[k->mode](&c, v, k->len, iv);
+	snprintf(name, sizeof(name), "%s %s short-tail encrypt", k->cipher, MODE_NAMES[k->mode]);
+	CHECK(memcmp(v, ct, k->len) == 0, name);
+
+	memcpy(v, ct, k->len);
+	DEC_FNS[k->mode](&c, v, k->len, iv2);
+	snprintf(name, sizeof(name), "%s %s short-tail decrypt", k->cipher, MODE_NAMES[k->mode]);
+	CHECK(memcmp(v, pt, k->len) == 0, name);
+}
+
+/* The block modes cannot take a partial block, and the contract in
+   blockcipher.h is that the tail comes back unchanged rather than that they
+   invent a short block. This pins that pass-through, so a later change cannot
+   quietly start writing past the last whole block. */
+static void runBlockTailPassThrough(void)
+{
+	static const int BLOCK_MODES[] = {0, 1, 2};
+	char name[128];
+
+	for (size_t d = 0; d < sizeof CIPHER_DEFS / sizeof CIPHER_DEFS[0]; ++d)
+	{
+		const struct CipherDef *def = &CIPHER_DEFS[d];
+		int len = def->blockSize * 2 + 3;
+		for (size_t m = 0; m < sizeof BLOCK_MODES / sizeof BLOCK_MODES[0]; ++m)
+		{
+			union State st;
+			BlockCipher c = def->ctor(&st);
+			uint8_t key[16], v[48], iv[16], tail[3];
+
+			memset(key, 0x11, (size_t)def->keyLen);
+			c.generateKeys(&c, key, (size_t)def->keyLen);
+			for (int i = 0; i < len; ++i)
+				v[i] = (uint8_t)(0xA0 + i);
+			memcpy(tail, v + len - 3, 3);
+			memset(iv, 0x22, def->blockSize);
+
+			ENC_FNS[BLOCK_MODES[m]](&c, v, len, iv);
+			snprintf(name, sizeof(name), "%s %s leaves a partial tail untouched",
+				 def->name, MODE_NAMES[BLOCK_MODES[m]]);
+			CHECK(memcmp(v + len - 3, tail, 3) == 0, name);
+		}
+	}
+}
+
 static void fill(uint8_t *p, int n, int seed)
 {
 	for (int i = 0; i < n; ++i)
@@ -186,6 +307,28 @@ static void runModes(const char *label, BlockCipher *c, int bs)
 		snprintf(name, sizeof(name), "%s %s encrypt+decrypt restores plaintext", label, MODE_NAMES[m]);
 		CHECK(memcmp(v, w, len) == 0, name);
 	}
+
+	/* One more byte than two whole blocks, so the keystream modes have a
+	   partial final block to take and a length that is not a multiple of the
+	   block size. */
+	{
+		int tailLen = bs * 2 + 1;
+		uint8_t v[48], w[48], iv[16], iv2[16];
+		char name[96];
+
+		fill(iv, bs, 0x2A);
+		for (int m = 3; m <= 5; ++m)
+		{
+			fill(v, tailLen, m + 40);
+			memcpy(w, v, tailLen);
+			memcpy(iv2, iv, bs);
+
+			ENC_FNS[m](c, v, tailLen, iv);
+			DEC_FNS[m](c, v, tailLen, iv2);
+			snprintf(name, sizeof(name), "%s %s partial-tail round trip", label, MODE_NAMES[m]);
+			CHECK(memcmp(v, w, tailLen) == 0, name);
+		}
+	}
 }
 
 int main()
@@ -193,6 +336,13 @@ int main()
 	printf("== BlockCipher mode known-answer tests ==\n");
 	for (size_t i = 0; i < sizeof MODE_KATS / sizeof MODE_KATS[0]; ++i)
 		runModeKat(&MODE_KATS[i]);
+
+	printf("== Keystream modes with a short final block ==\n");
+	for (size_t i = 0; i < sizeof TAIL_KATS / sizeof TAIL_KATS[0]; ++i)
+		runTailKat(&TAIL_KATS[i]);
+
+	printf("== Block modes leave a partial tail alone ==\n");
+	runBlockTailPassThrough();
 
 	printf("== BlockCipher modes: Blowfish (8-byte block) ==\n");
 	{

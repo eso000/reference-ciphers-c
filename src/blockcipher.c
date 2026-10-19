@@ -85,12 +85,23 @@ void cipherEncryptCFB(BlockCipher *c, uint8_t *plt, int len, uint8_t *iv)
 {
 	int bs = c->blockSize;
 	uint8_t reg[16];
+	uint8_t *i = plt;
+	uint8_t *end = plt + len;
+
 	memcpy(reg, iv, bs);
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
+	for (; i + bs <= end; i += bs)
 	{
 		c->encryptBlock(c, reg);
 		xorBlock(i, reg, bs);
 		memcpy(reg, i, bs);
+	}
+	/* A short final block is XORed against the leading bytes of one more
+	   keystream block. The feedback value that would follow it is never used
+	   again, so the truncated ciphertext does not have to be padded. */
+	if (i < end)
+	{
+		c->encryptBlock(c, reg);
+		xorBlock(i, reg, (int)(end - i));
 	}
 }
 
@@ -99,13 +110,21 @@ void cipherDecryptCFB(BlockCipher *c, uint8_t *plt, int len, uint8_t *iv)
 	int bs = c->blockSize;
 	uint8_t reg[16];
 	uint8_t t[16];
+	uint8_t *i = plt;
+	uint8_t *end = plt + len;
+
 	memcpy(reg, iv, bs);
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
+	for (; i + bs <= end; i += bs)
 	{
 		c->encryptBlock(c, reg);
 		memcpy(t, i, bs);
 		xorBlock(i, reg, bs);
 		memcpy(reg, t, bs);
+	}
+	if (i < end)
+	{
+		c->encryptBlock(c, reg);
+		xorBlock(i, reg, (int)(end - i));
 	}
 }
 
@@ -113,11 +132,19 @@ void cipherEncryptOFB(BlockCipher *c, uint8_t *plt, int len, uint8_t *iv)
 {
 	int bs = c->blockSize;
 	uint8_t reg[16];
+	uint8_t *i = plt;
+	uint8_t *end = plt + len;
+
 	memcpy(reg, iv, bs);
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
+	for (; i + bs <= end; i += bs)
 	{
 		c->encryptBlock(c, reg);
 		xorBlock(i, reg, bs);
+	}
+	if (i < end)
+	{
+		c->encryptBlock(c, reg);
+		xorBlock(i, reg, (int)(end - i));
 	}
 }
 
@@ -131,13 +158,22 @@ void cipherEncryptCTR(BlockCipher *c, uint8_t *plt, int len, uint8_t *iv)
 	int bs = c->blockSize;
 	uint8_t ctr[16];
 	uint8_t ks[16];
+	uint8_t *i = plt;
+	uint8_t *end = plt + len;
+
 	memcpy(ctr, iv, bs);
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
+	for (; i + bs <= end; i += bs)
 	{
 		memcpy(ks, ctr, bs);
 		c->encryptBlock(c, ks);
 		xorBlock(i, ks, bs);
 		incrementCounter(ctr, bs);
+	}
+	if (i < end)
+	{
+		memcpy(ks, ctr, bs);
+		c->encryptBlock(c, ks);
+		xorBlock(i, ks, (int)(end - i));
 	}
 }
 
