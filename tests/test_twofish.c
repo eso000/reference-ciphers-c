@@ -13,6 +13,11 @@ struct Kat
 	const char *cipher;
 };
 
+/* The official Twofish known-answer tests (Schneier et al., B.2) for 128-,
+   192- and 256-bit keys. The Python suite carries exactly these five as
+   TWOFISH_KATS; the 128-bit chain continues the all-zero ciphertext as the
+   next plaintext, which is why the second and third entries feed the previous
+   result forward. */
 static struct Kat KATS[] = {
 	{"00000000000000000000000000000000",
 	 "00000000000000000000000000000000", "9f589f5cf6122c32b6bfec2f2ae8c35a"},

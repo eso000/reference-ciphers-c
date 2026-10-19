@@ -13,6 +13,11 @@ struct Kat
 	const char *cipher;
 };
 
+/* The classic published single-DES values: the FIPS 46-3 walkthrough pair,
+   plus the two from the original DES paper's own test set. The Python suite
+   carries exactly these three as DES_KATS. The AABB09182736CCDD entry is
+   widely reproduced but does not appear in either source, so its provenance
+   is unconfirmed -- the same caveat the Python file records for it. */
 static struct Kat KATS[] = {
 	{"133457799BBCDFF1", "0123456789ABCDEF", "85E813540F0AB405"},
 	{"0E329232EA6D0D73", "8787878787878787", "0000000000000000"},

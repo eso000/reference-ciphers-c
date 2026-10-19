@@ -14,29 +14,43 @@ struct Kat
 	const char *cipher;
 };
 
-/* The published single-block vectors, spanning all three key lengths and the
-   four NESSIE sets. The Python suite in tests/vectors.py carries all sixteen;
-   this is the subset worth burning C build time on. */
+/* The published single-block vectors: the NESSIE/verified sets 1-4 for
+   128-, 192- and 256-bit keys, exactly the sixteen the Python suite carries
+   as SERPENT_KATS and the same little-endian octet order it uses. */
 static struct Kat KATS[] = {
 	{"128-bit set1 v0", "80000000000000000000000000000000",
 		"00000000000000000000000000000000", "264e5481eff42a4606abda06c0bfda3d"},
+	{"128-bit set2 v0", "00000000000000000000000000000000",
+		"80000000000000000000000000000000", "a3b35de7c358ddd82644678c64b8bcbb"},
+	{"128-bit set3 v0", "00000000000000000000000000000000",
+		"00000000000000000000000000000000", "3620b17ae6a993d09618b8768266bae9"},
 	{"128-bit set4 v0", "000102030405060708090a0b0c0d0e0f",
 		"00112233445566778899aabbccddeeff", "563e2cf8740a27c164804560391e9b27"},
 	{"128-bit set4 v1", "2bd6459f82c5b300952c49104881ff48",
 		"ea024714ad5c4d84ea024714ad5c4d84", "92d7f8ef2c36c53409f275902f06539f"},
 	{"192-bit set1 v0", "800000000000000000000000000000000000000000000000",
 		"00000000000000000000000000000000", "9e274ead9b737bb21efcfca548602689"},
+	{"192-bit set2 v0", "000000000000000000000000000000000000000000000000",
+		"80000000000000000000000000000000", "23f5f432ad687e0d4574c16459618abb"},
+	{"192-bit set3 v0", "000000000000000000000000000000000000000000000000",
+		"00000000000000000000000000000000", "a583ef976a292b406bbd5dc8256b0442"},
 	{"192-bit set4 v0", "000102030405060708090a0b0c0d0e0f1011121314151617",
 		"00112233445566778899aabbccddeeff", "6ab816c82de53b93005008afa2246a02"},
+	{"192-bit set4 v1", "2bd6459f82c5b300952c49104881ff482bd6459f82c5b300",
+		"ea024714ad5c4d84ea024714ad5c4d84", "827b18c2678a239dfc5512842000e204"},
 	{"256-bit set1 v0", "8000000000000000000000000000000000000000000000000000000000000000",
 		"00000000000000000000000000000000", "a223aa1288463c0e2be38ebd825616c0"},
+	{"256-bit set2 v0", "0000000000000000000000000000000000000000000000000000000000000000",
+		"80000000000000000000000000000000", "8314675e8ad5c3ecd83d852bcf7f566e"},
+	{"256-bit set3 v0", "0000000000000000000000000000000000000000000000000000000000000000",
+		"00000000000000000000000000000000", "49672ba898d98df95019180445491089"},
 	{"256-bit set3 v17", "1111111111111111111111111111111111111111111111111111111111111111",
 		"11111111111111111111111111111111", "a482eaa5d5771f2fdb2ea1a5f141b9e2"},
+	{"256-bit set4 v0", "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+		"00112233445566778899aabbccddeeff", "2868b7a2d28ecd5e4fdefac3c4330074"},
 	{"256-bit set4 v1", "2bd6459f82c5b300952c49104881ff482bd6459f82c5b300952c49104881ff48",
 		"ea024714ad5c4d84ea024714ad5c4d84", "3e507730776b93fdea661235e1dd99f0"},
 };
-
-#define KAT_COUNT ((int)(sizeof KATS / sizeof KATS[0]))
 
 /* Multi-block vectors. Serpent's published vectors are single-block ECB, so
    nothing published covers the mode wrappers; these were produced by GNU
@@ -60,8 +74,6 @@ static struct ModeKat ECB_KATS[] = {
 		"de269ff833e432b85b2e88d2701ce75ce534b936d9df2fc053bee5ed268fc68c"},
 };
 
-#define ECB_KAT_COUNT ((int)(sizeof ECB_KATS / sizeof ECB_KATS[0]))
-
 #define CBC_KEY   "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 #define CBC_IV    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 #define CBC_CIPHER "2aa5a2ff0c27a0f9590f6167e9e779d861fc6463d2e956091e91677d4f38860c"
@@ -71,7 +83,7 @@ int main()
 	char name[96];
 
 	printf("== Serpent known-answer tests (ECB vectors) ==\n");
-	for (int i = 0; i < KAT_COUNT; ++i)
+	for (size_t i = 0; i < sizeof KATS / sizeof KATS[0]; ++i)
 	{
 		struct Serpent ser;
 		BlockCipher c = serpent_cipher(&ser);
@@ -97,7 +109,7 @@ int main()
 	}
 
 	printf("== ECB two blocks (nettle) ==\n");
-	for (int i = 0; i < ECB_KAT_COUNT; ++i)
+	for (size_t i = 0; i < sizeof ECB_KATS / sizeof ECB_KATS[0]; ++i)
 	{
 		struct Serpent ser;
 		BlockCipher c = serpent_cipher(&ser);
