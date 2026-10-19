@@ -28,6 +28,7 @@ TESTS := \
 	test_serpent \
 	test_modes \
 	test_padding \
+	test_cipher \
 	test_keys
 
 BINS := $(addprefix $(BUILD_DIR)/,$(TESTS))
