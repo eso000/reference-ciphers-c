@@ -4,20 +4,7 @@
 
 #include "block/aes.h"
 #include "block/padding.h"
-
-static int g_fails = 0;
-
-#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
-
-static void hexDecode(const char *hex, uint8_t *out)
-{
-	for (int i = 0; hex[2 * i] && hex[2 * i + 1]; ++i)
-	{
-		unsigned x;
-		sscanf(hex + 2 * i, "%2x", &x);
-		out[i] = (uint8_t)x;
-	}
-}
+#include "testutil.h"
 
 struct Kat
 {
@@ -44,20 +31,21 @@ int main()
 	char name[96];
 
 	printf("== AES known-answer tests (ECB vectors) ==\n");
-	for (int i = 0; i < 5; ++i)
+	for (size_t i = 0; i < sizeof KATS / sizeof KATS[0]; ++i)
 	{
 		struct AES aes;
 		BlockCipher c = aes_cipher(&aes);
-		uint8_t pt[16], ct[16], v[16];
-		c.generateKeys(&c, (char *)KATS[i].key);
+		uint8_t key[32], pt[16], ct[16], v[16];
+		hexDecode(KATS[i].key, key);
+		c.generateKeys(&c, key, hexLen(KATS[i].key));
 		hexDecode(KATS[i].plain, pt);
 		hexDecode(KATS[i].cipher, ct);
 		memcpy(v, pt, 16);
 		cipherEncryptECB(&c, v, 16);
-		snprintf(name, sizeof(name), "kat ecb %02d encrypt", i + 1);
+		snprintf(name, sizeof(name), "kat ecb %02zu encrypt", i + 1);
 		CHECK(memcmp(v, ct, 16) == 0, name);
 		cipherDecryptECB(&c, v, 16);
-		snprintf(name, sizeof(name), "kat ecb %02d decrypt", i + 1);
+		snprintf(name, sizeof(name), "kat ecb %02zu decrypt", i + 1);
 		CHECK(memcmp(v, pt, 16) == 0, name);
 	}
 
@@ -66,9 +54,10 @@ int main()
 		struct AES aes;
 		BlockCipher c = aes_cipher(&aes);
 		uint8_t v[32], w[32];
-		uint8_t pt[32];
+		uint8_t pt[32], key[16];
 		hexDecode("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e51", pt);
-		c.generateKeys(&c, "000102030405060708090a0b0c0d0e0f");
+		hexDecode("000102030405060708090a0b0c0d0e0f", key);
+		c.generateKeys(&c, key, sizeof key);
 		memcpy(v, pt, 32);
 		memcpy(w, pt, 32);
 		cipherEncryptECB(&c, v, 32);
@@ -82,11 +71,12 @@ int main()
 		struct AES aes;
 		BlockCipher c = aes_cipher(&aes);
 		uint8_t v[32], w[32], iv[16], iv2[16];
-		uint8_t pt[32];
+		uint8_t pt[32], key[16];
 		hexDecode("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e51", pt);
 		hexDecode("000102030405060708090a0b0c0d0e0f", iv);
+		hexDecode("2b7e151628aed2a6abf7158809cf4f3c", key);
 		memcpy(iv2, iv, 16);
-		c.generateKeys(&c, "2b7e151628aed2a6abf7158809cf4f3c");
+		c.generateKeys(&c, key, sizeof key);
 		memcpy(v, pt, 32);
 		memcpy(w, pt, 32);
 		cipherEncryptCBC(&c, v, 32, iv);

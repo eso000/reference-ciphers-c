@@ -3,10 +3,7 @@
 #include <string.h>
 
 #include "block/padding.h"
-
-static int g_fails = 0;
-
-#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
+#include "testutil.h"
 
 static uint8_t *make(int n, uint8_t fill)
 {

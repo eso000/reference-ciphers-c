@@ -98,40 +98,25 @@ FORCE_INLINE void aes_invRound(uint32_t cols[4], uint32_t tmp[4], const uint32_t
 	aes_invShiftRowsSubBytes(tmp, cols);
 }
 
-static uint8_t aes_hexNibble(char c)
-{
-	if (c >= '0' && c <= '9')
-		return (uint8_t)(c - '0');
-	if (c >= 'a' && c <= 'f')
-		return (uint8_t)(c - 'a' + 10);
-	if (c >= 'A' && c <= 'F')
-		return (uint8_t)(c - 'A' + 10);
-	return 0;
-}
-
-/* AES accepts a 128, 192 or 256-bit key. The key arrives as a hex string, so
-   that is 32, 48 or 64 characters. Anything else used to be silently padded
-   with '0' up to the next size, which turned a 33-character key into a valid
-   AES-192 key with a '0' the caller never wrote. */
+/* AES accepts a 128, 192 or 256-bit key, i.e. 16, 24 or 32 bytes. Anything
+   else used to be silently padded with '0' up to the next size, which turned
+   a 33-character key into a valid AES-192 key with a '0' the caller never
+   wrote. A NULL key is refused for the same reason: it has no bytes to read. */
 static int aes_key_ok(size_t len)
 {
-	return len == 32 || len == 48 || len == 64;
+	return len == 16 || len == 24 || len == 32;
 }
 
-struct AES aes_generateKeys(char* key)
+struct AES aes_generateKeys(const uint8_t *key, size_t len)
 {
 	struct AES a;
-	char kbuf[65];
-	int klen = (int)strlen(key);
-	if (!aes_key_ok((size_t)klen))
+	if (key == NULL || !aes_key_ok(len))
 	{
 		memset(&a, 0, sizeof(a));
 		return a;
 	}
-	memcpy(kbuf, key, (size_t)klen);
-	kbuf[klen] = '\0';
 
-	int N = klen / 8;
+	int N = (int)len / 4;
 	int R = 1;
 	if (N == 4)
 		R = 11;
@@ -141,9 +126,9 @@ struct AES aes_generateKeys(char* key)
 		R = 15;
 
 	uint8_t W[60][4];
-	for (int i = 0; i < klen; i = i + 8)
+	for (int i = 0; i < (int)len; i = i + 4)
 		for (int j = 0; j < 4; ++j)
-			W[i / 8][j] = (uint8_t)((aes_hexNibble(kbuf[i + 2*j]) << 4) | aes_hexNibble(kbuf[i + 2*j + 1]));
+			W[i / 4][j] = key[i + j];
 
 	uint8_t rcon[4] = {1, 0, 0, 0};
 	uint8_t temp[4];
@@ -345,15 +330,15 @@ void aes_decrypt_block(uint8_t *p, const struct AES *a)
 	}
 }
 
-int aes_generateKeysSelf(BlockCipher *self, char *key)
+int aes_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 {
 	struct AES *a = self->cipherState;
-	if (!aes_key_ok(strlen(key)))
+	if (key == NULL || !aes_key_ok(len))
 	{
 		memset(a, 0, sizeof(*a));
 		return 0;
 	}
-	*a = aes_generateKeys(key);
+	*a = aes_generateKeys(key, len);
 	return 1;
 }
 

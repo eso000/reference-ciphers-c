@@ -10,9 +10,9 @@ struct DES{
 	uint8_t use_alt;
 };
 
-/* des_generateKeys returns a zeroed struct if key is not 16 hex characters,
+/* des_generateKeys returns a zeroed struct if key is NULL or not 8 bytes,
    i.e. a 64-bit key. */
-struct DES des_generateKeys(char* key);
+struct DES des_generateKeys(const uint8_t *key, size_t len);
 
 uint64_t des_ip_perm_alt(uint64_t block);
 
@@ -22,8 +22,8 @@ void des_encrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d);
 
 void des_decrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d);
 
-/* Returns 1 on success, 0 if key is not a valid DES key length. */
-int des_generateKeysSelf(BlockCipher *self, char *key);
+/* Returns 1 on success, 0 if key is NULL or not a valid DES key length. */
+int des_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len);
 
 void des_encryptBlock(BlockCipher *self, uint8_t *block);
 

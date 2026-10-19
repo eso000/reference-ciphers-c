@@ -16,16 +16,16 @@ struct Twofish{
 
 
 
-/* twofish_generateKeys returns a zeroed struct if key is not 32, 48 or 64 hex
-   characters, i.e. a 128, 192 or 256-bit key. */
-struct Twofish twofish_generateKeys(char *mkey);
+/* twofish_generateKeys returns a zeroed struct if key is NULL or not 16, 24
+   or 32 bytes, i.e. a 128, 192 or 256-bit key. */
+struct Twofish twofish_generateKeys(const uint8_t *mkey, size_t ksize);
 
 void twofish_encrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf);
 
 void twofish_decrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf);
 
-/* Returns 1 on success, 0 if key is not a valid Twofish key length. */
-int twofish_generateKeysSelf(BlockCipher *self, char *key);
+/* Returns 1 on success, 0 if key is NULL or not a valid Twofish key length. */
+int twofish_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len);
 
 void twofish_encryptBlock(BlockCipher *self, uint8_t *block);
 

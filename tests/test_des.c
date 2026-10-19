@@ -4,20 +4,7 @@
 
 #include "block/des.h"
 #include "block/padding.h"
-
-static int g_fails = 0;
-
-#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
-
-static void hexDecode(const char *hex, uint8_t *out)
-{
-	for (int i = 0; hex[2 * i] && hex[2 * i + 1]; ++i)
-	{
-		unsigned x;
-		sscanf(hex + 2 * i, "%2x", &x);
-		out[i] = (uint8_t)x;
-	}
-}
+#include "testutil.h"
 
 struct Kat
 {
@@ -37,12 +24,13 @@ int main()
 	char name[96];
 
 	printf("== DES known-answer tests (both IP/FP implementations) ==\n");
-	for (int i = 0; i < 3; ++i)
+	for (size_t i = 0; i < sizeof KATS / sizeof KATS[0]; ++i)
 	{
 		struct DES des;
 		BlockCipher c = des_cipher(&des);
-		uint8_t pt[8], ct[8], v[8];
-		c.generateKeys(&c, (char *)KATS[i].key);
+		uint8_t key[8], pt[8], ct[8], v[8];
+		hexDecode(KATS[i].key, key);
+		c.generateKeys(&c, key, sizeof key);
 		hexDecode(KATS[i].plain, pt);
 		hexDecode(KATS[i].cipher, ct);
 		for (int ai = 0; ai < 2; ++ai)
@@ -51,10 +39,10 @@ int main()
 			des.use_alt = (uint8_t)ai;
 			memcpy(v, pt, 8);
 			cipherEncryptECB(&c, v, 8);
-			snprintf(name, sizeof(name), "kat ecb %02d encrypt (%s)", i + 1, mode);
+			snprintf(name, sizeof(name), "kat ecb %02zu encrypt (%s)", i + 1, mode);
 			CHECK(memcmp(v, ct, 8) == 0, name);
 			cipherDecryptECB(&c, v, 8);
-			snprintf(name, sizeof(name), "kat ecb %02d decrypt (%s)", i + 1, mode);
+			snprintf(name, sizeof(name), "kat ecb %02zu decrypt (%s)", i + 1, mode);
 			CHECK(memcmp(v, pt, 8) == 0, name);
 		}
 	}
@@ -76,8 +64,9 @@ int main()
 	{
 		struct DES des;
 		BlockCipher c = des_cipher(&des);
-		uint8_t a[8], b[8], orig[8];
-		c.generateKeys(&c, "AABB09182736CCDD");
+		uint8_t a[8], b[8], orig[8], key[8];
+		hexDecode("AABB09182736CCDD", key);
+		c.generateKeys(&c, key, sizeof key);
 		hexDecode("123456ABCD132536", orig);
 		memcpy(a, orig, 8);
 		memcpy(b, orig, 8);
@@ -100,7 +89,9 @@ int main()
 		uint8_t v[16] = {0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36,
 				 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 		uint8_t w[16];
-		c.generateKeys(&c, "AABB09182736CCDD");
+		uint8_t key[8];
+		hexDecode("AABB09182736CCDD", key);
+		c.generateKeys(&c, key, sizeof key);
 		memcpy(w, v, 16);
 		cipherEncryptECB(&c, v, 16);
 		CHECK(memcmp(v, w, 16) != 0, "ecb ciphertext differs from plaintext");
@@ -116,7 +107,9 @@ int main()
 				 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 		uint8_t w[16];
 		uint8_t iv[8] = {0}, iv2[8] = {0};
-		c.generateKeys(&c, "AABB09182736CCDD");
+		uint8_t key[8];
+		hexDecode("AABB09182736CCDD", key);
+		c.generateKeys(&c, key, sizeof key);
 		memcpy(w, v, 16);
 		cipherEncryptCBC(&c, v, 16, iv);
 		CHECK(memcmp(v, w, 16) != 0, "cbc ciphertext differs from plaintext");

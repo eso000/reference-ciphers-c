@@ -37,8 +37,10 @@ $(BUILD_DIR):
 # Each test binary is compiled from source in a single command, so there are no
 # object files to go stale against header edits and no dependency list to maintain.
 # Every test links the whole library; unused ciphers cost nothing and adding a
-# cipher here needs no new rule.
-$(BUILD_DIR)/%: $(TEST_DIR)/%.c $(LIB_SRCS) | $(BUILD_DIR)
+# cipher here needs no new rule. testutil.h is shared by every test, so it is a
+# prerequisite of all of them: editing the harness must rebuild the harness's
+# users even when the test itself did not change.
+$(BUILD_DIR)/%: $(TEST_DIR)/%.c $(TEST_DIR)/testutil.h $(LIB_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(INC_DIR) $< $(LIB_SRCS) -o $@
 
 test: all

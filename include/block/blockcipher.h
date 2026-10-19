@@ -1,6 +1,7 @@
 #ifndef BLOCKCIPHER_HEADER
 #define BLOCKCIPHER_HEADER
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct BlockCipher BlockCipher;
@@ -12,10 +13,10 @@ struct BlockCipher {
 	   valid length for this cipher the return is 0 and cipherState is zeroed,
 	   so a rejected key can never be mistaken for a usable schedule.
 
-	   Keys are NUL-terminated hex strings, so a length here is in hex
-	   characters: a 16-byte key is 32 characters, not 16. Each cipher's
-	   accepted lengths are documented on its own generateKeysSelf. */
-	int (*generateKeys)(BlockCipher *self, char *key);
+	   Keys are raw bytes: len is the key length in bytes, not characters, and
+	   a NULL key is rejected outright. Each cipher's accepted lengths are
+	   documented on its own generateKeys. */
+	int (*generateKeys)(BlockCipher *self, const uint8_t *key, size_t len);
 	void (*encryptBlock)(BlockCipher *self, uint8_t *block);
 	void (*decryptBlock)(BlockCipher *self, uint8_t *block);
 };

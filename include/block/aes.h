@@ -10,16 +10,16 @@ struct AES{
 	int nKeys;
 };
 
-/* aes_generateKeys returns a zeroed struct if key is not 32, 48 or 64 hex
-   characters, i.e. a 128, 192 or 256-bit key. */
-struct AES aes_generateKeys(char* key);
+/* aes_generateKeys returns a zeroed struct if key is NULL or not 16, 24 or
+   32 bytes, i.e. a 128, 192 or 256-bit key. */
+struct AES aes_generateKeys(const uint8_t *key, size_t len);
 
 void aes_encrypt_block(uint8_t *p, const struct AES *a);
 
 void aes_decrypt_block(uint8_t *p, const struct AES *a);
 
-/* Returns 1 on success, 0 if key is not a valid AES key length. */
-int aes_generateKeysSelf(BlockCipher *self, char *key);
+/* Returns 1 on success, 0 if key is NULL or not a valid AES key length. */
+int aes_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len);
 
 void aes_encryptBlock(BlockCipher *self, uint8_t *block);
 

@@ -49,70 +49,6 @@ FORCE_INLINE void serpent_invLT(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32
 	*x0 = rotr(*x0, 13);
 }
 
-static uint8_t hexNibble(char c)
-{
-	if (c >= '0' && c <= '9')
-		return (uint8_t)(c - '0');
-	if (c >= 'a' && c <= 'f')
-		return (uint8_t)(c - 'a' + 10);
-	if (c >= 'A' && c <= 'F')
-		return (uint8_t)(c - 'A' + 10);
-	return 0;
-}
-
-static void padKeyBit(const char *key, char out[65])
-{
-	char k[66];
-	if (key[0] == '\0')
-	{
-		k[0] = '0'; k[1] = '0'; k[2] = '\0';
-	}
-	else
-	{
-		strncpy(k, key, 65);
-		k[65] = '\0';
-		int len = (int)strlen(k);
-		if (len % 2 == 1)
-		{
-			k[len] = '0';
-			k[len + 1] = '\0';
-		}
-	}
-	int len = (int)strlen(k);
-	if (len >= 64)
-	{
-		memcpy(out, k, 64);
-		out[64] = '\0';
-		return;
-	}
-
-	char bin[257];
-	int n = 0;
-	for (int i = 0; i < len; ++i)
-	{
-		uint8_t v = hexNibble(k[i]);
-		for (int b = 3; b >= 0; --b)
-			bin[n++] = ((v >> b) & 1) ? '1' : '0';
-	}
-	/* The spec pads short keys by appending a '1' bit, i.e. a byte of
-	   0x01 right after the key bytes. */
-	{
-		uint8_t pad = 0x01;
-		for (int b = 7; b >= 0; --b)
-			bin[n++] = ((pad >> b) & 1) ? '1' : '0';
-	}
-	while (n < 256)
-		bin[n++] = '0';
-
-	static const char hexchars[] = "0123456789abcdef";
-	for (int i = 0; i < 255; i += 4)
-	{
-		int v = ((bin[i] - '0') << 3) | ((bin[i+1] - '0') << 2) | ((bin[i+2] - '0') << 1) | (bin[i+3] - '0');
-		out[i / 4] = hexchars[v];
-	}
-	out[64] = '\0';
-}
-
 /* Word and byte conversion follow Serpent's bit order (Section 3.3): the first
    bit of the block is the least significant bit of word 0, so the four bytes
    of a word are read and written little-endian and left unreversed. */
@@ -130,18 +66,6 @@ static void serpent_store32(uint8_t *p, uint32_t w)
 	p[1] = (uint8_t)(w >> 8);
 	p[2] = (uint8_t)(w >> 16);
 	p[3] = (uint8_t)(w >> 24);
-}
-
-/* The same little-endian word, read from eight hex characters. */
-static uint32_t serpent_word_from_hex(const char *s)
-{
-	uint32_t result = 0;
-	for (int i = 0; i < 4; ++i)
-	{
-		uint32_t byte = ((uint32_t)hexNibble(s[2 * i]) << 4) | hexNibble(s[2 * i + 1]);
-		result |= byte << (8 * i);
-	}
-	return result;
 }
 
 FORCE_INLINE void applySBox(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3, int n)
@@ -416,32 +340,40 @@ FORCE_INLINE void serpent_invRound(uint32_t *x0, uint32_t *x1, uint32_t *x2, uin
 	serpent_addRoundKey(x0, x1, x2, x3, i, s);
 }
 
-/* Serpent accepts any key from 1 to 256 bits. The key arrives as a hex string,
-   so 2 to 64 characters, and padKeyBit applies the spec's Section 3 padding to
-   anything shorter than 256 bits. Only an empty key and an over-long one are
-   rejected: padKeyBit would otherwise turn "" into the "00" key and truncate
-   past 64 characters without telling the caller. */
+/* Serpent accepts any key from 1 to 256 bits, i.e. 1 to 32 bytes. Only a
+   NULL, empty or over-long key is rejected: the spec's Section 3 padding
+   below would otherwise turn an empty key into the all-zero key and truncate
+   past 32 bytes without telling the caller. */
 static int serpent_key_ok(size_t len)
 {
-	return len >= 1 && len <= 64;
+	return len >= 1 && len <= 32;
 }
 
-struct Serpent serpent_generateKeys(char* key)
+struct Serpent serpent_generateKeys(const uint8_t *key, size_t len)
 {
 	struct Serpent s;
-	char pk[65];
-	if (!serpent_key_ok(strlen(key)))
+	if (key == NULL || !serpent_key_ok(len))
 	{
 		memset(&s, 0, sizeof(s));
 		return s;
 	}
-	padKeyBit(key, pk);
+
+	/* Section 3 padding, which a byte API makes direct: a key shorter than
+	   256 bits gets a 1 bit appended, i.e. a 0x01 byte after the key bytes,
+	   then zero bytes up to 32. Serpent's words are little-endian, so the
+	   same serpent_load32 used on blocks reads these key bytes. */
+	uint8_t k[32];
+	memset(k, 0, sizeof(k));
+	memcpy(k, key, len);
+	if (len < 32)
+		k[len] = 0x01;
+
 	uint32_t wi;
 	uint32_t w[140];
 
-	for (int i = 0; i < 64; i = i + 8)
+	for (int i = 0; i < 32; i = i + 4)
 	{
-		w[i / 8] = serpent_word_from_hex(pk + i);
+		w[i / 4] = serpent_load32(k + i);
 	}
 
 	/* Prekey recurrence (Section 4):
@@ -544,15 +476,15 @@ void serpent_decrypt_block(uint8_t *x0, uint8_t *x1, uint8_t *x2, uint8_t *x3, c
 	serpent_store32(x3, w3);
 }
 
-int serpent_generateKeysSelf(BlockCipher *self, char *key)
+int serpent_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 {
 	struct Serpent *s = self->cipherState;
-	if (!serpent_key_ok(strlen(key)))
+	if (key == NULL || !serpent_key_ok(len))
 	{
 		memset(s, 0, sizeof(*s));
 		return 0;
 	}
-	*s = serpent_generateKeys(key);
+	*s = serpent_generateKeys(key, len);
 	return 1;
 }
 

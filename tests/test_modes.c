@@ -6,10 +6,7 @@
 #include "block/aes.h"
 #include "block/des.h"
 #include "block/serpent.h"
-
-static int g_fails = 0;
-
-#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
+#include "testutil.h"
 
 typedef void (*ModeFn)(BlockCipher *, uint8_t *, int, uint8_t *);
 
@@ -69,7 +66,9 @@ int main()
 	{
 		struct Blowfish bf;
 		BlockCipher c = blowfish_cipher(&bf);
-		c.generateKeys(&c, "AABB09182736CCDD");
+		uint8_t key[8];
+		hexDecode("AABB09182736CCDD", key);
+		c.generateKeys(&c, key, sizeof key);
 		runModes("blowfish", &c, 8);
 	}
 
@@ -77,7 +76,9 @@ int main()
 	{
 		struct Twofish tf;
 		BlockCipher c = twofish_cipher(&tf);
-		c.generateKeys(&c, "00000000000000000000000000000000");
+		uint8_t key[16];
+		hexDecode("00000000000000000000000000000000", key);
+		c.generateKeys(&c, key, sizeof key);
 		runModes("twofish", &c, 16);
 	}
 
@@ -85,7 +86,9 @@ int main()
 	{
 		struct AES aes;
 		BlockCipher c = aes_cipher(&aes);
-		c.generateKeys(&c, "000102030405060708090a0b0c0d0e0f");
+		uint8_t key[16];
+		hexDecode("000102030405060708090a0b0c0d0e0f", key);
+		c.generateKeys(&c, key, sizeof key);
 		runModes("aes", &c, 16);
 	}
 
@@ -93,7 +96,9 @@ int main()
 	{
 		struct Serpent ser;
 		BlockCipher c = serpent_cipher(&ser);
-		c.generateKeys(&c, "1111111111111111111111111111111111111111111111111111111111111111");
+		uint8_t key[32];
+		hexDecode("1111111111111111111111111111111111111111111111111111111111111111", key);
+		c.generateKeys(&c, key, sizeof key);
 		runModes("serpent", &c, 16);
 	}
 
@@ -101,7 +106,9 @@ int main()
 	{
 		struct DES des;
 		BlockCipher c = des_cipher(&des);
-		c.generateKeys(&c, "AABB09182736CCDD");
+		uint8_t key[8];
+		hexDecode("AABB09182736CCDD", key);
+		c.generateKeys(&c, key, sizeof key);
 		runModes("des", &c, 8);
 	}
 

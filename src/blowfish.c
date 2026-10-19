@@ -75,38 +75,37 @@ void blowfish_decrypt_block(uint8_t *lb, uint8_t *rb, const struct Blowfish *bf)
 	store32_be(lb, right);
 }
 
-/* Blowfish takes a key of 32 to 448 bits, i.e. 4 to 56 bytes, which is
-   8 to 112 hex characters. The schedule consumes 8 hex characters (one
-   32-bit word) at a time and wraps with (8 * i) % strlen(key), so a
-   length that is not a multiple of 8 would straddle the terminator and
-   silently key a word from fewer digits than the caller supplied. Hence
-   the step of 8.
+/* Blowfish takes a key of 32 to 448 bits, i.e. 4 to 56 bytes. The schedule
+   consumes four key bytes (one 32-bit word) at a time and wraps with
+   (4 * i) % len, which is the algorithm's own key-cycling rule, so every
+   length in the range is usable.
 
-   The length guard is what keeps (8 * i) % strlen(key) from dividing by
-   zero: an empty key used to raise SIGFPE. */
+   The length guard is also what keeps (4 * i) % len from dividing by zero:
+   an empty key used to raise SIGFPE. With hex strings this function also
+   required a multiple of 8 characters, because a read of 8 characters would
+   otherwise straddle the terminating NUL; raw bytes have no terminator to
+   straddle, so that restriction is gone. */
 static int blowfish_key_ok(size_t len)
 {
-	return len >= 8 && len <= 112 && len % 8 == 0;
+	return len >= 4 && len <= 56;
 }
 
-struct Blowfish blowfish_generateKeys(char* key)
+struct Blowfish blowfish_generateKeys(const uint8_t *key, size_t len)
 {
-	if (!blowfish_key_ok(strlen(key)))
+	if (key == NULL || !blowfish_key_ok(len))
 	{
 		struct Blowfish bad;
 		memset(&bad, 0, sizeof(bad));
 		return bad;
 	}
 
-	size_t t;
 	uint32_t keys[18];
+	uint8_t word[4];
 	for (int i = 0; i < 18; i++)
 	{
-		t = (8 * (size_t)i) % strlen(key);
-		char temp[9];
-		strncpy(temp, key + t, 8);
-		temp[8] = '\0';
-		keys[i] = (uint32_t)strtoul(temp, NULL, 16) ^ PBox[i];
+		for (int j = 0; j < 4; ++j)
+			word[j] = key[(4 * (size_t)i + (size_t)j) % len];
+		keys[i] = load32_be(word) ^ PBox[i];
 	}
 	struct Blowfish blowfish;
 	memcpy(blowfish.SBoxes0, SBox[0], sizeof(SBox[0]));
@@ -151,15 +150,15 @@ struct Blowfish blowfish_generateKeys(char* key)
 	return blowfish;
 }
 
-int blowfish_generateKeysSelf(BlockCipher *self, char *key)
+int blowfish_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 {
 	struct Blowfish *bf = self->cipherState;
-	if (!blowfish_key_ok(strlen(key)))
+	if (key == NULL || !blowfish_key_ok(len))
 	{
 		memset(bf, 0, sizeof(*bf));
 		return 0;
 	}
-	*bf = blowfish_generateKeys(key);
+	*bf = blowfish_generateKeys(key, len);
 	return 1;
 }
 

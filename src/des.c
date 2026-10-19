@@ -95,24 +95,27 @@ FORCE_INLINE uint64_t des_rotl28(uint64_t x, int n)
 	return ((x << n) | (x >> (28 - n))) & 0xFFFFFFF;
 }
 
-/* DES takes a 64-bit key, i.e. 16 hex characters. strtoull below reads at most
-   16 digits and stops at the first non-hex character, so a longer key used to
-   be accepted and quietly truncated to its first 16 characters. */
+/* DES takes a 64-bit key, i.e. 8 bytes. A longer hex string used to be
+   accepted and quietly truncated: strtoull read at most 16 digits and
+   stopped at the first non-hex character, so only the leading characters
+   ever reached the schedule. */
 static int des_key_ok(size_t len)
 {
-	return len == 16;
+	return len == 8;
 }
 
-struct DES des_generateKeys(char* key)
+struct DES des_generateKeys(const uint8_t *key, size_t len)
 {
 	struct DES d;
 	d.use_alt = 1;
-	if (!des_key_ok(strlen(key)))
+	if (key == NULL || !des_key_ok(len))
 	{
 		memset(&d, 0, sizeof(d));
 		return d;
 	}
-	uint64_t leftKey = strtoull(key, NULL, 16);
+	uint64_t leftKey = 0;
+	for (int i = 0; i < 8; ++i)
+		leftKey = (leftKey << 8) | key[i];
 	leftKey = des_permutate(leftKey, keyperm1, 56, 64);
 	uint64_t rightKey = leftKey & 0xFFFFFFF;
 	leftKey >>= 28;
@@ -218,15 +221,15 @@ void des_decrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d)
 	*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1]; *(rb+3) = right.b[0];
 }
 
-int des_generateKeysSelf(BlockCipher *self, char *key)
+int des_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 {
 	struct DES *d = self->cipherState;
-	if (!des_key_ok(strlen(key)))
+	if (key == NULL || !des_key_ok(len))
 	{
 		memset(d, 0, sizeof(*d));
 		return 0;
 	}
-	*d = des_generateKeys(key);
+	*d = des_generateKeys(key, len);
 	return 1;
 }
 

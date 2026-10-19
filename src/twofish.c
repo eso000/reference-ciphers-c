@@ -151,33 +151,28 @@ uint8_t RSAmul(int i, uint8_t *p)
 	return result;
 }
 
-/* Twofish accepts a 128, 192 or 256-bit key, i.e. 32, 48 or 64 hex
-   characters. */
+/* Twofish accepts a 128, 192 or 256-bit key, i.e. 16, 24 or 32 bytes. */
 static int twofish_key_ok(size_t len)
 {
-	return len == 32 || len == 48 || len == 64;
+	return len == 16 || len == 24 || len == 32;
 }
 
-struct Twofish twofish_generateKeys(char * mkey)
+struct Twofish twofish_generateKeys(const uint8_t *mkey, size_t ksize)
 {
-	size_t ksize = strlen(mkey);
-
-	if (!twofish_key_ok(ksize)){
+	if (mkey == NULL || !twofish_key_ok(ksize)){
 		struct Twofish bad;
 		memset(&bad, 0, sizeof(bad));
 		return bad;
 	}
 
-	int n = (int)ksize/2;
+	/* n is the key length in bytes, which is what the schedule below works
+	   in: the measured key S is n/2 bytes from n/8 RSAmul rows, and the key
+	   words M_odd/M_even pair up n bytes. */
+	int n = (int)ksize;
 
 	uint8_t m[32];
 
-	for (int i = 0 ;i < (int)ksize ;i= i+2 ) {
-		char temp[3];
-		strncpy(temp, mkey + i, 2);
-		temp[2] = '\0';
-		m[i/2] = (uint8_t)strtoul(temp, NULL, 16);
-	}
+	memcpy(m, mkey, ksize);
 
 	uint8_t S[n/2];
 	for (int i = 0; i< n/8; i++)
@@ -331,15 +326,15 @@ void twofish_decrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb
 	store32_le(rb1, left1 ^ tf->Subkeys[3]);
 }
 
-int twofish_generateKeysSelf(BlockCipher *self, char *key)
+int twofish_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 {
 	struct Twofish *tf = self->cipherState;
-	if (!twofish_key_ok(strlen(key)))
+	if (key == NULL || !twofish_key_ok(len))
 	{
 		memset(tf, 0, sizeof(*tf));
 		return 0;
 	}
-	*tf = twofish_generateKeys(key);
+	*tf = twofish_generateKeys(key, len);
 	return 1;
 }
 

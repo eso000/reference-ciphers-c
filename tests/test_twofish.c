@@ -4,20 +4,7 @@
 
 #include "block/twofish.h"
 #include "block/padding.h"
-
-static int g_fails = 0;
-
-#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
-
-static void hexDecode(const char *hex, uint8_t *out)
-{
-	for (int i = 0; hex[2 * i] && hex[2 * i + 1]; ++i)
-	{
-		unsigned x;
-		sscanf(hex + 2 * i, "%2x", &x);
-		out[i] = (uint8_t)x;
-	}
-}
+#include "testutil.h"
 
 struct Kat
 {
@@ -44,22 +31,22 @@ int main()
 	char name[96];
 
 	printf("== Twofish known-answer tests ==\n");
-	for (int i = 0; i < 5; ++i)
+	for (size_t i = 0; i < sizeof KATS / sizeof KATS[0]; ++i)
 	{
-		char key[128];
+		uint8_t key[32];
 		struct Twofish tf;
 		BlockCipher c = twofish_cipher(&tf);
 		uint8_t pt[16], ct[16], v[16];
-		strcpy(key, KATS[i].key);
-		c.generateKeys(&c, key);
+		hexDecode(KATS[i].key, key);
+		c.generateKeys(&c, key, hexLen(KATS[i].key));
 		hexDecode(KATS[i].plain, pt);
 		hexDecode(KATS[i].cipher, ct);
 		memcpy(v, pt, 16);
 		cipherEncryptECB(&c, v, 16);
-		snprintf(name, sizeof(name), "kat %02d encrypt", i + 1);
+		snprintf(name, sizeof(name), "kat %02zu encrypt", i + 1);
 		CHECK(memcmp(v, ct, 16) == 0, name);
 		cipherDecryptECB(&c, v, 16);
-		snprintf(name, sizeof(name), "kat %02d decrypt", i + 1);
+		snprintf(name, sizeof(name), "kat %02zu decrypt", i + 1);
 		CHECK(memcmp(v, pt, 16) == 0, name);
 	}
 
@@ -68,7 +55,9 @@ int main()
 		struct Twofish tf;
 		BlockCipher c = twofish_cipher(&tf);
 		uint8_t v[32], w[32];
-		c.generateKeys(&c, "88B2B2706B105E36B446BB6D731A1E88EFA71F788965BD44");
+		uint8_t key[24];
+		hexDecode("88B2B2706B105E36B446BB6D731A1E88EFA71F788965BD44", key);
+		c.generateKeys(&c, key, sizeof key);
 		hexDecode("39DA69D6BA4997D585B6DC073CA341B2"
 			  "9F589F5CF6122C32B6BFEC2F2AE8C35A", v);
 		memcpy(w, v, 32);
@@ -84,7 +73,9 @@ int main()
 		BlockCipher c = twofish_cipher(&tf);
 		uint8_t v[32], w[32];
 		uint8_t iv[16] = {0}, iv2[16] = {0};
-		c.generateKeys(&c, "00000000000000000000000000000000");
+		uint8_t key[16];
+		hexDecode("00000000000000000000000000000000", key);
+		c.generateKeys(&c, key, sizeof key);
 		memset(v, 0, 32);
 		memcpy(w, v, 32);
 		cipherEncryptCBC(&c, v, 32, iv);

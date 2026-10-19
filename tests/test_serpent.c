@@ -4,20 +4,7 @@
 
 #include "block/serpent.h"
 #include "block/padding.h"
-
-static int g_fails = 0;
-
-#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
-
-static void hexDecode(const char *hex, uint8_t *out)
-{
-	for (int i = 0; hex[2 * i] && hex[2 * i + 1]; ++i)
-	{
-		unsigned x;
-		sscanf(hex + 2 * i, "%2x", &x);
-		out[i] = (uint8_t)x;
-	}
-}
+#include "testutil.h"
 
 struct Kat
 {
@@ -88,9 +75,10 @@ int main()
 	{
 		struct Serpent ser;
 		BlockCipher c = serpent_cipher(&ser);
-		uint8_t pt[16], ct[16], v[16];
+		uint8_t key[32], pt[16], ct[16], v[16];
 
-		c.generateKeys(&c, (char *)KATS[i].key);
+		hexDecode(KATS[i].key, key);
+		c.generateKeys(&c, key, hexLen(KATS[i].key));
 		hexDecode(KATS[i].plain, pt);
 		hexDecode(KATS[i].cipher, ct);
 
@@ -113,9 +101,10 @@ int main()
 	{
 		struct Serpent ser;
 		BlockCipher c = serpent_cipher(&ser);
-		uint8_t pt[32], ct[32], v[32];
+		uint8_t key[32], pt[32], ct[32], v[32];
 
-		c.generateKeys(&c, (char *)ECB_KATS[i].key);
+		hexDecode(ECB_KATS[i].key, key);
+		c.generateKeys(&c, key, hexLen(ECB_KATS[i].key));
 		hexDecode(TWO_BLOCK_PT, pt);
 		hexDecode(ECB_KATS[i].cipher, ct);
 
@@ -130,7 +119,7 @@ int main()
 		CHECK(memcmp(v, pt, 32) == 0, name);
 
 		/* ECB must not chain: encrypting block 2 alone gives the same bytes. */
-		c.generateKeys(&c, (char *)ECB_KATS[i].key);
+		c.generateKeys(&c, key, hexLen(ECB_KATS[i].key));
 		memcpy(v, pt + 16, 16);
 		cipherEncryptECB(&c, v, 16);
 		snprintf(name, sizeof(name), "ecb two-block %s block 2 stands alone", ECB_KATS[i].name);
@@ -141,9 +130,10 @@ int main()
 	{
 		struct Serpent ser;
 		BlockCipher c = serpent_cipher(&ser);
-		uint8_t pt[32], ct[32], v[32], iv[16];
+		uint8_t key[32], pt[32], ct[32], v[32], iv[16];
 
-		c.generateKeys(&c, (char *)CBC_KEY);
+		hexDecode(CBC_KEY, key);
+		c.generateKeys(&c, key, hexLen(CBC_KEY));
 		hexDecode(TWO_BLOCK_PT, pt);
 		hexDecode(CBC_CIPHER, ct);
 
@@ -178,8 +168,9 @@ int main()
 		static const uint32_t EXPECTED[4] = {
 			0x6f5795d0u, 0xa7e3a3ceu, 0xf2d998edu, 0x8ed77390u,
 		};
-		struct Serpent ser = serpent_generateKeys((char *)
-			"0000000000000000000000000000000000000000000000000000000000000000");
+		uint8_t key[32];
+		hexDecode("0000000000000000000000000000000000000000000000000000000000000000", key);
+		struct Serpent ser = serpent_generateKeys(key, sizeof key);
 
 		/* Subkeys is a flat array of 33 four-word subkeys, 132 words in all. */
 		CHECK(ser.Subkeys[0] == EXPECTED[0] && ser.Subkeys[1] == EXPECTED[1] &&
@@ -193,9 +184,11 @@ int main()
 		struct Serpent ser;
 		BlockCipher c = serpent_cipher(&ser);
 		uint8_t v[32], w[32];
+		uint8_t key[32];
 		for (int i = 0; i < 32; ++i)
 			v[i] = (uint8_t)(0x10 + i);
-		c.generateKeys(&c, "1111111111111111111111111111111111111111111111111111111111111111");
+		hexDecode("1111111111111111111111111111111111111111111111111111111111111111", key);
+		c.generateKeys(&c, key, sizeof key);
 		memcpy(w, v, 32);
 		cipherEncryptECB(&c, v, 32);
 		CHECK(memcmp(v, w, 32) != 0, "ecb ciphertext differs from plaintext");
@@ -209,9 +202,11 @@ int main()
 		BlockCipher c = serpent_cipher(&ser);
 		uint8_t v[32], w[32];
 		uint8_t iv[16] = {0}, iv2[16] = {0};
+		uint8_t key[32];
 		for (int i = 0; i < 32; ++i)
 			v[i] = (uint8_t)(0xA0 + i);
-		c.generateKeys(&c, "8000000000000000000000000000000000000000000000000000000000000000");
+		hexDecode("8000000000000000000000000000000000000000000000000000000000000000", key);
+		c.generateKeys(&c, key, sizeof key);
 		memcpy(w, v, 32);
 		cipherEncryptCBC(&c, v, 32, iv);
 		CHECK(memcmp(v, w, 32) != 0, "cbc ciphertext differs from plaintext");
