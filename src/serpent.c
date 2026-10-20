@@ -2,6 +2,7 @@
 
 #include "block/serpent.h"
 #include "serpent_data.h"
+#include "bytes.h"
 #include "force_inline.h"
 
 
@@ -9,15 +10,6 @@
 /* The block is held as four 32-bit words in little-endian bit order, so the
    paper's "<<<" and "<<" (Serpent proposal, Section 3) are plain rotl and
    masked left shifts on those words. */
-FORCE_INLINE uint32_t rotl(uint32_t x, int n)
-{
-	return (x << n) | (x >> (32 - n));
-}
-
-FORCE_INLINE uint32_t rotr(uint32_t x, int n)
-{
-	return (x >> n) | (x << (32 - n));
-}
 
 /* The ten steps of the paper's linear transformation, in its order. */
 FORCE_INLINE void serpent_LT(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3)
