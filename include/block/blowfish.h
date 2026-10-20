@@ -23,9 +23,9 @@ struct Blowfish blowfish_generateKeys(const uint8_t *key, size_t len);
    check, so a caller can ask before building a schedule. */
 int blowfish_keyOk(const uint8_t *key, size_t len);
 
-void blowfish_encrypt_block(uint8_t *lb, uint8_t *rb, const struct Blowfish *bf);
+void blowfish_encrypt_block(uint8_t *block, const struct Blowfish *bf);
 
-void blowfish_decrypt_block(uint8_t *lb, uint8_t *rb, const struct Blowfish *bf);
+void blowfish_decrypt_block(uint8_t *block, const struct Blowfish *bf);
 
 /* Returns 1 on success, 0 if key is NULL or not a valid Blowfish key length. */
 int blowfish_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len);

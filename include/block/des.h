@@ -22,9 +22,9 @@ uint64_t des_ip_perm_alt(uint64_t block);
 
 uint64_t des_fp_perm_alt(uint64_t block);
 
-void des_encrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d);
+void des_encrypt_block(uint8_t *block, const struct DES *d);
 
-void des_decrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d);
+void des_decrypt_block(uint8_t *block, const struct DES *d);
 
 /* Returns 1 on success, 0 if key is NULL or not a valid DES key length. */
 int des_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len);

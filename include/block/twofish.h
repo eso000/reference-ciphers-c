@@ -24,9 +24,9 @@ struct Twofish twofish_generateKeys(const uint8_t *mkey, size_t ksize);
    check, so a caller can ask before building a schedule. */
 int twofish_keyOk(const uint8_t *key, size_t len);
 
-void twofish_encrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf);
+void twofish_encrypt_block(uint8_t *block, const struct Twofish *tf);
 
-void twofish_decrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf);
+void twofish_decrypt_block(uint8_t *block, const struct Twofish *tf);
 
 /* Returns 1 on success, 0 if key is NULL or not a valid Twofish key length. */
 int twofish_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len);

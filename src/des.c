@@ -154,8 +154,10 @@ FORCE_INLINE void des_round(union word *l, const union word *r, int i, const str
 	l->w ^= des_f(r->w, d->Subkeys[i], d);
 }
 
-void des_encrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d)
+void des_encrypt_block(uint8_t *block, const struct DES *d)
 {
+	uint8_t *lb = block;
+	uint8_t *rb = block + 4;
 	union word left, right;
 	left.b[3] = *lb; left.b[2] = *(lb+1); left.b[1] = *(lb+2); left.b[0] = *(lb+3);
 	right.b[3] = *rb; right.b[2] = *(rb+1); right.b[1] = *(rb+2); right.b[0] = *(rb+3);
@@ -188,8 +190,10 @@ void des_encrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d)
 	*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1]; *(rb+3) = right.b[0];
 }
 
-void des_decrypt_block(uint8_t *lb, uint8_t *rb, const struct DES *d)
+void des_decrypt_block(uint8_t *block, const struct DES *d)
 {
+	uint8_t *lb = block;
+	uint8_t *rb = block + 4;
 	union word left, right;
 	left.b[3] = *lb; left.b[2] = *(lb+1); left.b[1] = *(lb+2); left.b[0] = *(lb+3);
 	right.b[3] = *rb; right.b[2] = *(rb+1); right.b[1] = *(rb+2); right.b[0] = *(rb+3);
@@ -236,12 +240,12 @@ int des_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 
 void des_encryptBlock(BlockCipher *self, uint8_t *block)
 {
-	des_encrypt_block(block, block + 4, self->cipherState);
+	des_encrypt_block(block, self->cipherState);
 }
 
 void des_decryptBlock(BlockCipher *self, uint8_t *block)
 {
-	des_decrypt_block(block, block + 4, self->cipherState);
+	des_decrypt_block(block, self->cipherState);
 }
 
 BlockCipher des_cipher(void *state)

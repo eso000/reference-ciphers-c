@@ -242,8 +242,12 @@ struct Twofish twofish_generateKeys(const uint8_t *mkey, size_t ksize)
 	return tf;
 }
 
-void twofish_encrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf)
+void twofish_encrypt_block(uint8_t *block, const struct Twofish *tf)
 {
+	uint8_t *lb0 = block;
+	uint8_t *lb1 = block + 4;
+	uint8_t *rb0 = block + 8;
+	uint8_t *rb1 = block + 12;
 	uint32_t left0 = load32_le(lb0) ^ tf->Subkeys[0];
 	uint32_t left1 = load32_le(lb1) ^ tf->Subkeys[1];
 	uint32_t right0 = load32_le(rb0) ^ tf->Subkeys[2];
@@ -273,8 +277,12 @@ void twofish_encrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb
 	store32_le(rb1, left1 ^ tf->Subkeys[7]);
 }
 
-void twofish_decrypt_block(uint8_t *lb0, uint8_t *lb1, uint8_t *rb0, uint8_t *rb1, const struct Twofish *tf)
+void twofish_decrypt_block(uint8_t *block, const struct Twofish *tf)
 {
+	uint8_t *lb0 = block;
+	uint8_t *lb1 = block + 4;
+	uint8_t *rb0 = block + 8;
+	uint8_t *rb1 = block + 12;
 	uint32_t left0 = load32_le(lb0) ^ tf->Subkeys[4];
 	uint32_t left1 = load32_le(lb1) ^ tf->Subkeys[5];
 	uint32_t right0 = load32_le(rb0) ^ tf->Subkeys[6];
@@ -317,12 +325,12 @@ int twofish_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
 
 void twofish_encryptBlock(BlockCipher *self, uint8_t *block)
 {
-	twofish_encrypt_block(block, block + 4, block + 8, block + 12, (const struct Twofish *)self->cipherState);
+	twofish_encrypt_block(block, (const struct Twofish *)self->cipherState);
 }
 
 void twofish_decryptBlock(BlockCipher *self, uint8_t *block)
 {
-	twofish_decrypt_block(block, block + 4, block + 8, block + 12, (const struct Twofish *)self->cipherState);
+	twofish_decrypt_block(block, (const struct Twofish *)self->cipherState);
 }
 
 BlockCipher twofish_cipher(void *state)
