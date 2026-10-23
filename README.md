@@ -1,7 +1,6 @@
 # reference-ciphers-c
 
 [![CI](https://github.com/eso000/reference-ciphers-c/actions/workflows/ci.yml/badge.svg)](https://github.com/eso000/reference-ciphers-c/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/eso000/reference-ciphers-c/branch/main/graph/badge.svg)](https://codecov.io/gh/eso000/reference-ciphers-c)
 ![C11](https://img.shields.io/badge/C-C11-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)

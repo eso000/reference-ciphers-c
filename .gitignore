@@ -10,7 +10,6 @@ build/
 *.gcov
 *.profraw
 *.profdata
-coverage.xml
 
 # Editor and tooling droppings.
 *.swp
