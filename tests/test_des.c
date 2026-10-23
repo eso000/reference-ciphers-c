@@ -24,7 +24,7 @@ static struct Kat KATS[] = {
 	{"AABB09182736CCDD", "123456ABCD132536", "C0B7A8D05F3A829C"},
 };
 
-int main()
+int main(void)
 {
 	char name[96];
 

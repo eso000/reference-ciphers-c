@@ -69,7 +69,7 @@ static struct ModeKat AES_SP800_CBC[] = {
 	 "39f23369a9d9bacfa530e26304231461b2eb05e2c39be9fcda6c19078c6a9d1b"},
 };
 
-int main()
+int main(void)
 {
 	char name[96];
 

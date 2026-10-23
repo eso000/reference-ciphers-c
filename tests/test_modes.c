@@ -331,7 +331,7 @@ static void runModes(const char *label, BlockCipher *c, int bs)
 	}
 }
 
-int main()
+int main(void)
 {
 	printf("== BlockCipher mode known-answer tests ==\n");
 	for (size_t i = 0; i < sizeof MODE_KATS / sizeof MODE_KATS[0]; ++i)

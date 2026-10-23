@@ -54,7 +54,7 @@ static void checkRejected(const char *name,
 	CHECK(unpad(buf, size, blockSize) == -1, name);
 }
 
-int main()
+int main(void)
 {
 	printf("== padding ==\n");
 	{

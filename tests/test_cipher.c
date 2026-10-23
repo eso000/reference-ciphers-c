@@ -498,7 +498,7 @@ static void checkMalformedPadding(const struct CipherDef *def)
 	free(out);
 }
 
-int main()
+int main(void)
 {
 	printf("== whole-message path: reference vectors ==\n");
 	for (size_t i = 0; i < sizeof CIPHER_KATS / sizeof CIPHER_KATS[0]; ++i)

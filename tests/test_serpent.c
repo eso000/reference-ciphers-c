@@ -78,7 +78,7 @@ static struct ModeKat ECB_KATS[] = {
 #define CBC_IV    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 #define CBC_CIPHER "2aa5a2ff0c27a0f9590f6167e9e779d861fc6463d2e956091e91677d4f38860c"
 
-int main()
+int main(void)
 {
 	char name[96];
 
