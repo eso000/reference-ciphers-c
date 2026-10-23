@@ -496,6 +496,7 @@ static void checkMalformedPadding(const struct CipherDef *def)
 	CHECK(cipherDecrypt(&c, CIPHER_CBC, iv, (size_t)bs, ct, ctLen, PAD_PKCS,
 			    &out, &outLen) == -1, name);
 	free(out);
+	free(ct);
 }
 
 int main(void)
