@@ -77,13 +77,14 @@ wrong length are all reported as errors (see [API](#api)).
 ## Build and test
 
 ```bash
-make          # build every test binary into build/
-make test     # build, then run them all
+make          # build the tests and the example into build/
+make test     # build, then run the tests
+make examples # build just the example
 make clean    # remove build/
 ```
 
 `make` respects `CC` from the environment or command line and otherwise defaults
-to `gcc`. The test build compiles every source file into one command per binary,
+to `gcc`. Test and example binaries are each compiled from source in one command,
 so there are no stale objects to maintain.
 
 Because the project is warning-clean and sanitizer-clean, the strict build is
@@ -103,6 +104,23 @@ make CC=gcc CFLAGS="-std=c11 -O0 -g -Wall -Wextra -Wpedantic --coverage" test
 gcovr --root . --txt --print-summary
 ```
 
+## Example
+
+The complete program is [`examples/roundtrip.c`](examples/roundtrip.c). It
+encrypts and decrypts a short message with AES-128-CBC and ISO 7816-4 padding,
+checks every return value, and frees both buffers.
+
+```bash
+make examples
+./build/roundtrip
+# recovered: attack at dawn
+```
+
+The key and IV are fixed so the output is reproducible. Real code needs a
+random, unpredictable IV for every message and a proper key-derivation function.
+CI builds and runs the example in each compiler and sanitizer configuration of
+the test matrix, so it cannot drift from the public API.
+
 ## API
 
 There are two layers. For whole messages, use the first.
@@ -114,42 +132,34 @@ apply padding for the block modes, run the mode, and return a freshly `malloc`'d
 buffer that the caller frees. This mirrors the Python reference's
 `encrypt` / `decrypt`.
 
+The core calls are below; the complete, compiling version is
+[`examples/roundtrip.c`](examples/roundtrip.c).
+
 ```c
-#include <stdio.h>
-#include <stdlib.h>
+struct AES aes;
+BlockCipher c = aes_cipher(&aes);
 
-#include "block/aes.h"
-#include "block/blockcipher.h"
+uint8_t key[16] = {0}; /* demo only; use a real key in production */
+uint8_t iv[16] = {0};  /* demo only; fresh and unpredictable in real use */
+uint8_t msg[] = "attack at dawn";
+uint8_t *ct = NULL, *pt = NULL;
+size_t ctLen = 0, ptLen = 0;
 
-int main(void)
+if (!c.generateKeys(&c, key, sizeof key))
+	return 1;
+if (cipherEncrypt(&c, CIPHER_CBC, iv, sizeof iv, msg, sizeof msg - 1,
+		  PAD_ISO78164, &ct, &ctLen) != 0)
+	return 1;
+if (cipherDecrypt(&c, CIPHER_CBC, iv, sizeof iv, ct, ctLen,
+		  PAD_ISO78164, &pt, &ptLen) != 0)
 {
-	struct AES aes;
-	BlockCipher c = aes_cipher(&aes);
-
-	uint8_t key[16];
-	for (int i = 0; i < 16; ++i)
-		key[i] = (uint8_t)i;
-	if (!c.generateKeys(&c, key, sizeof key))
-		return 1;
-
-	uint8_t iv[16] = {0}; /* one block; fresh and unpredictable in real use */
-	uint8_t msg[] = "attack at dawn";
-	uint8_t *ct = NULL, *pt = NULL;
-	size_t ctLen = 0, ptLen = 0;
-
-	if (cipherEncrypt(&c, CIPHER_CBC, iv, sizeof iv, msg, sizeof msg - 1,
-			  PAD_ISO78164, &ct, &ctLen) != 0)
-		return 1;
-	if (cipherDecrypt(&c, CIPHER_CBC, iv, sizeof iv, ct, ctLen,
-			  PAD_ISO78164, &pt, &ptLen) != 0)
-		return 1;
-
-	printf("recovered: %.*s\n", (int)ptLen, pt); /* recovered: attack at dawn */
-
 	free(ct);
-	free(pt);
-	return 0;
+	return 1;
 }
+
+printf("recovered: %.*s\n", (int)ptLen, pt); /* recovered: attack at dawn */
+free(ct);
+free(pt);
 ```
 
 `CipherMode` is `CIPHER_ECB`, `CIPHER_CBC`, `CIPHER_PCBC` (negative) or
@@ -192,32 +202,40 @@ caller-provided state struct, so there is no hidden allocation.
 include/block/   public headers: one per cipher, plus blockcipher.h and padding.h
 src/             implementations and the constant tables (*_data.h)
 tests/           one binary per cipher, plus modes, padding, whole-message and keys
-build/           test binaries and coverage artifacts (make output; ignored)
+examples/        runnable end-to-end example (binary goes to build/)
+build/           test and example binaries, coverage artifacts (make output; ignored)
 ```
 
 The mode layer (`src/blockcipher.c`) is written once against the `BlockCipher`
 vtable and shared by every cipher. Padding (`src/padding.c`) is a set of
 standalone primitives; the whole-message path selects between them by scheme.
 
-Internals follow the specifications rather than micro-optimized tricks:
+The cipher cores follow the specifications. Where an implementation uses a
+speed-oriented path, it is documented rather than hidden:
 
-- **AES** — GF(2⁸) arithmetic, SubBytes/ShiftRows/MixColumns, key expansion.
-- **DES** — bit permutations and the Feistel `f` function over the standard
-  tables.
+- **AES** — FIPS 197 key expansion and round structure. The round function uses
+  the standard 32-bit Rijndael T-table layout for SubBytes, ShiftRows,
+  MixColumns and AddRoundKey; the S-box and inverse S-box are from FIPS 197
+  §5.1, and the T-table entries are determined by those S-boxes and the
+  MixColumns / inverse MixColumns matrices.
+- **DES** — two implementations of the same Feistel cipher. The default
+  (`use_alt = 1`) uses delta-swap IP/FP networks and SP-boxes that fuse each
+  S-box with its share of P. `use_alt = 0` uses the literal bit-permutation and
+  S-box tables. The test suite requires both paths to agree.
 - **Blowfish** — the on-spec P-array and S-boxes, 16-round Feistel.
 - **Twofish** — GF polynomial multiplication, MDS matrices, PHT and q-boxes.
 - **Serpent** — bit-sliced S-box circuits and the linear transform.
 
 ## Testing and verification
 
-`make test` runs every binary; the suite records **2363 assertions**. Each test
-file links the whole library, so one run covers all five ciphers, the mode layer,
-the padding helpers and the whole-message path.
+`make test` runs every test binary; the suite records **2363 assertions**. Each
+test file links the whole library, so one run covers all five ciphers, the mode
+layer, the padding helpers and the whole-message path.
 
 | Test | Covers |
 |---|---|
 | `tests/test_aes.c` | FIPS-197 C.1–C.3, NIST SP 800-38A ECB and CBC |
-| `tests/test_des.c` | the classic published single-DES vectors |
+| `tests/test_des.c` | the classic single-DES vectors, plus agreement between the delta-swap and table paths |
 | `tests/test_blowfish.c` | Schneier's official 34-vector set and the `set_key` set |
 | `tests/test_twofish.c` | the official submission KATs |
 | `tests/test_serpent.c` | the NESSIE/verified sets |
@@ -229,7 +247,7 @@ the padding helpers and the whole-message path.
 Coverage is measured with `gcovr` in the CI coverage job and is currently ~97%
 of lines (96.8% over the whole tree, 99.3% of functions).
 
-Beyond the committed vectors, three independent checks were run during
+Beyond the committed vectors, two independent checks were run during
 development:
 
 - **Cross-language differential.** The mode layer (1566 cases) and the
@@ -271,13 +289,13 @@ surprising.
 
 ## References and attribution
 
-Every cipher is implemented from a published specification, and every constant
-table is taken from one.
+Every cipher follows a published specification. The source of each table and
+each non-obvious algorithm is listed below.
 
 | Cipher   | Specification | Constants and tables |
 |----------|---------------|----------------------|
-| AES      | FIPS 197 | S-box and inverse S-box (FIPS 197 §5.1) |
-| DES      | FIPS 46-3 | IP, FP, E, P, S-boxes, PC-1/PC-2 |
+| AES      | FIPS 197 | S-box and inverse S-box (FIPS 197 §5.1); standard Rijndael T-tables derived from them and MixColumns |
+| DES      | FIPS 46-3 | IP, FP, E, P, S-boxes, PC-1/PC-2; delta-swap IP/FP after Wei Dai/Outerbridge; SP-boxes derived from S-boxes + P |
 | Blowfish | Schneier, FSE 1993 | P-array and S-boxes (the hexadecimal digits of π, *Applied Cryptography* 2nd ed., appendix A.1) |
 | Twofish  | Schneier, Kelsey, Whiting, Wagner, Hall and Ferguson (AES submission, 1998) | MDS and RS matrices, q0/q1 permutations |
 | Serpent  | Anderson, Biham and Knudsen (1998) | S-boxes and the bit-slice gate networks (§3) |
@@ -286,6 +304,13 @@ The block modes (ECB, CBC, CFB, OFB, CTR) are from NIST SP 800-38A; PCBC is a
 legacy construction (ANSI X9.52 / Kerberos). Padding schemes are PKCS#7
 (RFC 2315), ANSI X9.23, ISO/IEC 7816-4, trailing bit complement, and zero
 padding.
+
+### Borrowed code
+
+The DES initial and final permutations in `src/des.c` use a delta-swap bit
+network — Wei Dai's variant of Richard Outerbridge's IP/FP algorithm — instead
+of the per-bit table loop. The table-driven path it replaces is kept behind
+`use_alt = 0`, and `tests/test_des.c` checks that the two agree.
 
 Further reading:
 

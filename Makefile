@@ -9,6 +9,7 @@ CFLAGS ?= -std=c11 -O2
 INC_DIR := include
 SRC_DIR := src
 TEST_DIR := tests
+EXAMPLE_DIR := examples
 BUILD_DIR := build
 
 CIPHER_SRCS := \
@@ -32,10 +33,11 @@ TESTS := \
 	test_keys
 
 BINS := $(addprefix $(BUILD_DIR)/,$(TESTS))
+EXAMPLE_BINS := $(BUILD_DIR)/roundtrip
 
-.PHONY: all test clean
+.PHONY: all test clean examples
 
-all: $(BINS)
+all: $(BINS) $(EXAMPLE_BINS)
 
 $(BUILD_DIR):
 	mkdir -p $@
@@ -49,7 +51,14 @@ $(BUILD_DIR):
 $(BUILD_DIR)/%: $(TEST_DIR)/%.c $(TEST_DIR)/testutil.h $(LIB_SRCS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -I$(INC_DIR) $< $(LIB_SRCS) -o $@
 
-test: all
+# The example uses only the public headers, so it compiles against the same
+# interface a downstream user sees.
+$(BUILD_DIR)/roundtrip: $(EXAMPLE_DIR)/roundtrip.c $(LIB_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(INC_DIR) $< $(LIB_SRCS) -o $@
+
+examples: $(EXAMPLE_BINS)
+
+test: $(BINS)
 	@fail=0; \
 	for t in $(TESTS); do \
 		./$(BUILD_DIR)/$$t || fail=1; \

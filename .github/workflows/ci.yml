@@ -37,6 +37,12 @@ jobs:
       # covers all five ciphers, the mode layer and the padding helpers.
       - name: Build and run tests
         run: make CC="${{ matrix.cc }}" CFLAGS="${{ matrix.cflags }}" test
+      # Keep the example compiling against the public headers, and check that
+      # its documented output is still what the library produces.
+      - name: Build and run the example
+        run: |
+          make CC="${{ matrix.cc }}" CFLAGS="${{ matrix.cflags }}" examples
+          test "$(./build/roundtrip)" = "recovered: attack at dawn"
 
   coverage:
     name: Coverage (gcovr)
