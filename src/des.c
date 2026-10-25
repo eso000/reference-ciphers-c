@@ -2,13 +2,9 @@
 #include <string.h>
 
 #include "block/des.h"
+#include "bytes.h"
 #include "des_data.h"
 #include "force_inline.h"
-
-union word{
-	uint32_t w;
-	uint8_t b[4];
-};
 
 FORCE_INLINE uint32_t rol32(uint32_t x, int n)
 {
@@ -149,26 +145,25 @@ FORCE_INLINE uint32_t des_f(uint32_t r, uint64_t k, const struct DES *d)
 	return (uint32_t)des_permutate(s, PBox, 32, 32);
 }
 
-FORCE_INLINE void des_round(union word *l, const union word *r, int i, const struct DES *d)
+FORCE_INLINE void des_round(uint32_t *l, const uint32_t *r, int i, const struct DES *d)
 {
-	l->w ^= des_f(r->w, d->Subkeys[i], d);
+	*l ^= des_f(*r, d->Subkeys[i], d);
 }
 
 void des_encrypt_block(uint8_t *block, const struct DES *d)
 {
 	uint8_t *lb = block;
 	uint8_t *rb = block + 4;
-	union word left, right;
-	left.b[3] = *lb; left.b[2] = *(lb+1); left.b[1] = *(lb+2); left.b[0] = *(lb+3);
-	right.b[3] = *rb; right.b[2] = *(rb+1); right.b[1] = *(rb+2); right.b[0] = *(rb+3);
+	uint32_t left = load32_be(lb);
+	uint32_t right = load32_be(rb);
 
 	uint64_t temp;
 	if (d->use_alt)
-		temp = des_ip_perm_alt((uint64_t)left.w << 32 | right.w);
+		temp = des_ip_perm_alt((uint64_t)left << 32 | right);
 	else
-			temp = des_permutate((uint64_t)left.w << 32 | right.w, initialperm, 64, 64);
-	left.w = temp >> 32;
-	right.w = temp & 0xffffffff;
+			temp = des_permutate((uint64_t)left << 32 | right, initialperm, 64, 64);
+	left = (uint32_t)(temp >> 32);
+	right = (uint32_t)(temp & 0xffffffff);
 
 	des_round(&left, &right, 0, d);  des_round(&right, &left, 1, d);
 	des_round(&left, &right, 2, d);  des_round(&right, &left, 3, d);
@@ -180,31 +175,30 @@ void des_encrypt_block(uint8_t *block, const struct DES *d)
 	des_round(&left, &right, 14, d); des_round(&right, &left, 15, d);
 
 	if (d->use_alt)
-		temp = des_fp_perm_alt((uint64_t)right.w << 32 | left.w);
+		temp = des_fp_perm_alt((uint64_t)right << 32 | left);
 	else
-			temp = des_permutate((uint64_t)right.w << 32 | left.w, inverseperm, 64, 64);
+			temp = des_permutate((uint64_t)right << 32 | left, inverseperm, 64, 64);
 
-	right.w = temp & 0xffffffff;
-	left.w = temp >> 32;
-	*lb = left.b[3]; *(lb+1) = left.b[2]; *(lb+2) = left.b[1]; *(lb+3) = left.b[0];
-	*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1]; *(rb+3) = right.b[0];
+	right = (uint32_t)(temp & 0xffffffff);
+	left = (uint32_t)(temp >> 32);
+	store32_be(lb, left);
+	store32_be(rb, right);
 }
 
 void des_decrypt_block(uint8_t *block, const struct DES *d)
 {
 	uint8_t *lb = block;
 	uint8_t *rb = block + 4;
-	union word left, right;
-	left.b[3] = *lb; left.b[2] = *(lb+1); left.b[1] = *(lb+2); left.b[0] = *(lb+3);
-	right.b[3] = *rb; right.b[2] = *(rb+1); right.b[1] = *(rb+2); right.b[0] = *(rb+3);
+	uint32_t left = load32_be(lb);
+	uint32_t right = load32_be(rb);
 
 	uint64_t temp;
 	if (d->use_alt)
-		temp = des_ip_perm_alt((uint64_t)left.w << 32 | right.w);
+		temp = des_ip_perm_alt((uint64_t)left << 32 | right);
 	else
-			temp = des_permutate((uint64_t)left.w << 32 | right.w, initialperm, 64, 64);
-	left.w = temp >> 32;
-	right.w = temp & 0xffffffff;
+			temp = des_permutate((uint64_t)left << 32 | right, initialperm, 64, 64);
+	left = (uint32_t)(temp >> 32);
+	right = (uint32_t)(temp & 0xffffffff);
 
 	des_round(&left, &right, 15, d);  des_round(&right, &left, 14, d);
 	des_round(&left, &right, 13, d);  des_round(&right, &left, 12, d);
@@ -216,14 +210,14 @@ void des_decrypt_block(uint8_t *block, const struct DES *d)
 	des_round(&left, &right, 1, d);  des_round(&right, &left, 0, d);
 
 	if (d->use_alt)
-		temp = des_fp_perm_alt((uint64_t)right.w << 32 | left.w);
+		temp = des_fp_perm_alt((uint64_t)right << 32 | left);
 	else
-			temp = des_permutate((uint64_t)right.w << 32 | left.w, inverseperm, 64, 64);
+			temp = des_permutate((uint64_t)right << 32 | left, inverseperm, 64, 64);
 
-	right.w = temp & 0xffffffff;
-	left.w = temp >> 32;
-	*lb = left.b[3]; *(lb+1) = left.b[2]; *(lb+2) = left.b[1]; *(lb+3) = left.b[0];
-	*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1]; *(rb+3) = right.b[0];
+	right = (uint32_t)(temp & 0xffffffff);
+	left = (uint32_t)(temp >> 32);
+	store32_be(lb, left);
+	store32_be(rb, right);
 }
 
 int des_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len)
