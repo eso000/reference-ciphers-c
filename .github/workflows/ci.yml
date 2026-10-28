@@ -73,9 +73,14 @@ jobs:
   format:
     name: Formatting (clang-format)
     runs-on: ubuntu-latest
+    # This forces the job to run inside the official Fedora docker container
+    container:
+      image: fedora:latest
     steps:
+      - name: Install dependencies
+        run: dnf install -y git make clang-tools-extra # installs clang-format
+
       - uses: actions/checkout@v4
-      - name: Install clang-format
-        run: sudo apt-get update && sudo apt-get install -y clang-format
+
       - name: Check formatting
-        run: make format-check
+        run: make CLANG_FORMAT=clang-format-22 format-check
