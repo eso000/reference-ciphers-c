@@ -5,8 +5,8 @@
 
 #include "block/blockcipher.h"
 
-struct Serpent{
-	uint32_t Subkeys [132];
+struct Serpent {
+    uint32_t Subkeys[132];
 };
 
 /* serpent_generateKeys returns a zeroed struct if key is NULL, empty or
@@ -20,9 +20,11 @@ struct Serpent serpent_generateKeys(const uint8_t *key, size_t len);
    check, so a caller can ask before building a schedule. */
 int serpent_keyOk(const uint8_t *key, size_t len);
 
-void serpent_encrypt_block(uint8_t *x0, uint8_t *x1, uint8_t *x2, uint8_t *x3, const struct Serpent *s);
+void serpent_encrypt_block(uint8_t *x0, uint8_t *x1, uint8_t *x2, uint8_t *x3,
+                           const struct Serpent *s);
 
-void serpent_decrypt_block(uint8_t *x0, uint8_t *x1, uint8_t *x2, uint8_t *x3, const struct Serpent *s);
+void serpent_decrypt_block(uint8_t *x0, uint8_t *x1, uint8_t *x2, uint8_t *x3,
+                           const struct Serpent *s);
 
 /* Returns 1 on success, 0 if key is NULL, empty or over-long. */
 int serpent_generateKeysSelf(BlockCipher *self, const uint8_t *key, size_t len);

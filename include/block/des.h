@@ -5,9 +5,9 @@
 
 #include "block/blockcipher.h"
 
-struct DES{
-	uint64_t Subkeys [16];
-	uint8_t use_alt;
+struct DES {
+    uint64_t Subkeys[16];
+    uint8_t use_alt;
 };
 
 /* des_generateKeys returns a zeroed struct if key is NULL or not 8 bytes,

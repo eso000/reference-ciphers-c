@@ -5,16 +5,14 @@
 
 #include "block/blockcipher.h"
 
-struct Twofish{
-    uint32_t Subkeys [40];
+struct Twofish {
+    uint32_t Subkeys[40];
 
-    uint32_t Sbox0 [256];
-    uint32_t Sbox1 [256];
-    uint32_t Sbox2 [256];
-    uint32_t Sbox3 [256];
+    uint32_t Sbox0[256];
+    uint32_t Sbox1[256];
+    uint32_t Sbox2[256];
+    uint32_t Sbox3[256];
 };
-
-
 
 /* twofish_generateKeys returns a zeroed struct if key is NULL or not 16, 24
    or 32 bytes, i.e. a 128, 192 or 256-bit key. */

@@ -5,12 +5,12 @@
 
 #include "block/blockcipher.h"
 
-struct Blowfish{
-	uint32_t SBoxes0 [256];
-	uint32_t SBoxes1 [256];
-	uint32_t SBoxes2 [256];
-	uint32_t SBoxes3 [256];
-	uint32_t Subkeys [18];
+struct Blowfish {
+    uint32_t SBoxes0[256];
+    uint32_t SBoxes1[256];
+    uint32_t SBoxes2[256];
+    uint32_t SBoxes3[256];
+    uint32_t Subkeys[18];
 };
 
 /* blowfish_generateKeys returns a zeroed struct if key is NULL or not 4 to

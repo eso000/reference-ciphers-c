@@ -73,6 +73,17 @@ wrong length are all reported as errors (see [API](#api)).
   runtime dependencies.
 - `make` to build; nothing else.
 
+### Formatting
+
+The project uses [clang-format](https://clang.llvm.org/docs/ClangFormat.html) with the
+configuration in [`.clang-format`](.clang-format). Formatting is enforced in CI for C
+and header files in `src/`, `include/`, `tests/`, and `examples/`.
+
+```bash
+make format       # apply formatting in place
+make format-check # verify formatting (used by CI)
+```
+
 ## Build and test
 
 ```bash

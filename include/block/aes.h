@@ -5,9 +5,9 @@
 
 #include "block/blockcipher.h"
 
-struct AES{
-	uint32_t Subkeys [60];
-	int nKeys;
+struct AES {
+    uint32_t Subkeys[60];
+    int nKeys;
 };
 
 /* aes_generateKeys returns a zeroed struct if key is NULL or not 16, 24 or

@@ -3,8 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint8_t *padPKCS(uint8_t *pvec, int size, int missing)
-{
+uint8_t *padPKCS(uint8_t *pvec, int size, int missing) {
     if (missing <= 0)
         return pvec;
 
@@ -18,8 +17,7 @@ uint8_t *padPKCS(uint8_t *pvec, int size, int missing)
     return temp;
 }
 
-uint8_t *padZeros(uint8_t *pvec, int size, int missing)
-{
+uint8_t *padZeros(uint8_t *pvec, int size, int missing) {
     if (missing <= 0)
         return pvec;
 
@@ -33,8 +31,7 @@ uint8_t *padZeros(uint8_t *pvec, int size, int missing)
     return temp;
 }
 
-uint8_t *padANSIX923(uint8_t *pvec, int size, int missing)
-{
+uint8_t *padANSIX923(uint8_t *pvec, int size, int missing) {
     if (missing <= 0)
         return pvec;
 
@@ -49,8 +46,7 @@ uint8_t *padANSIX923(uint8_t *pvec, int size, int missing)
     return temp;
 }
 
-uint8_t *padISO78164(uint8_t *pvec, int size, int missing)
-{
+uint8_t *padISO78164(uint8_t *pvec, int size, int missing) {
     if (missing <= 0)
         return pvec;
 
@@ -65,8 +61,7 @@ uint8_t *padISO78164(uint8_t *pvec, int size, int missing)
     return temp;
 }
 
-uint8_t *padTBC(uint8_t *pvec, int size, int missing)
-{
+uint8_t *padTBC(uint8_t *pvec, int size, int missing) {
     if (missing <= 0)
         return pvec;
 
@@ -88,8 +83,7 @@ uint8_t *padTBC(uint8_t *pvec, int size, int missing)
 /* Shared by the two count-byte schemes: the final byte is the length of the
    padding, and it has to be between 1 and the smaller of the block size and
    the data length. Anything else cannot be a padding this cipher produced. */
-static int unpadCount(const uint8_t *pvec, int size, int blockSize)
-{
+static int unpadCount(const uint8_t *pvec, int size, int blockSize) {
     if (pvec == NULL || blockSize < 1 || size < 1)
         return -1;
 
@@ -102,8 +96,7 @@ static int unpadCount(const uint8_t *pvec, int size, int blockSize)
     return count;
 }
 
-int unpadPKCS(const uint8_t *pvec, int size, int blockSize)
-{
+int unpadPKCS(const uint8_t *pvec, int size, int blockSize) {
     int count = unpadCount(pvec, size, blockSize);
 
     if (count < 0)
@@ -116,8 +109,7 @@ int unpadPKCS(const uint8_t *pvec, int size, int blockSize)
     return size - count;
 }
 
-int unpadANSIX923(const uint8_t *pvec, int size, int blockSize)
-{
+int unpadANSIX923(const uint8_t *pvec, int size, int blockSize) {
     int count = unpadCount(pvec, size, blockSize);
 
     if (count < 0)
@@ -131,8 +123,7 @@ int unpadANSIX923(const uint8_t *pvec, int size, int blockSize)
     return size - count;
 }
 
-int unpadISO78164(const uint8_t *pvec, int size, int blockSize)
-{
+int unpadISO78164(const uint8_t *pvec, int size, int blockSize) {
     if (pvec == NULL || blockSize < 1 || size < 1)
         return -1;
 
@@ -150,8 +141,7 @@ int unpadISO78164(const uint8_t *pvec, int size, int blockSize)
     return size - tail + end - 1;
 }
 
-int unpadTBC(const uint8_t *pvec, int size, int blockSize)
-{
+int unpadTBC(const uint8_t *pvec, int size, int blockSize) {
     if (pvec == NULL || blockSize < 1 || size < 1)
         return -1;
 

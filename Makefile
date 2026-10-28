@@ -35,7 +35,7 @@ TESTS := \
 BINS := $(addprefix $(BUILD_DIR)/,$(TESTS))
 EXAMPLE_BINS := $(BUILD_DIR)/roundtrip
 
-.PHONY: all test clean examples
+.PHONY: all test clean examples format format-check
 
 all: $(BINS) $(EXAMPLE_BINS)
 
@@ -67,3 +67,12 @@ test: $(BINS)
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+FORMAT_DIRS := src include tests examples
+FORMAT_FILES := $(shell find $(FORMAT_DIRS) -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null)
+
+format:
+	clang-format -i $(FORMAT_FILES)
+
+format-check:
+	clang-format --dry-run --Werror $(FORMAT_FILES)
